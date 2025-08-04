@@ -62,20 +62,19 @@ jobs:
           # Get version from package.json
           APP_VERSION=$(bun -e "console.log(require('./package.json').version)")
           
-          # Define APK names
-          UNIVERSAL_APK_NAME="tauri-app_${APP_VERSION}_universal.apk"
-          ARM64_APK_NAME="tauri-app_${APP_VERSION}_arm64.apk"
+          # Define APK name
+          ARM64_APK_NAME="tauri-app_${APP_VERSION}_arm64-v8a.apk"
           
           # Setup signing if secrets are provided
-          SOURCE_APK_NAME="app-release-unsigned.apk"
+          SIGNED_SUFFIX="-unsigned"
           if [ -n "${{ secrets.ANDROID_KEY_BASE64 }}" ]; then
             echo "Android signing secrets found. Setting up for a signed build."
-            SOURCE_APK_NAME="app-release.apk"
+            SIGNED_SUFFIX=""
             
             # Create keystore.properties
-            echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > src-tauri/gen/android/keystore.properties
-            echo "password=${{ secrets.ANDROID_KEY_PASSWORD }}" >> src-tauri/gen/android/keystore.properties
-            echo "storeFile=$RUNNER_TEMP/keystore.jks" >> src-tauri/gen/android/keystore.properties
+            echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > src-tauri/gen/android/app/keystore.properties
+            echo "password=${{ secrets.ANDROID_KEY_PASSWORD }}" >> src-tauri/gen/android/app/keystore.properties
+            echo "storeFile=$RUNNER_TEMP/keystore.jks" >> src-tauri/gen/android/app/keystore.properties
             
             # Decode and create the keystore file
             base64 -d <<< "${{ secrets.ANDROID_KEY_BASE64 }}" > $RUNNER_TEMP/keystore.jks
@@ -83,13 +82,10 @@ jobs:
             echo "Android signing secrets not found. Proceeding with an unsigned build."
           fi
           
-          # Build universal APK
-          bun run tauri android build
-          mv "src-tauri/gen/android/app/build/outputs/apk/release/$SOURCE_APK_NAME" "$UNIVERSAL_APK_NAME"
-          
           # Build arm64 APK
           bun run tauri android build -t aarch64
-          mv "src-tauri/gen/android/app/build/outputs/apk/release/$SOURCE_APK_NAME" "$ARM64_APK_NAME"
+          SOURCE_ARM64_APK="src-tauri/gen/android/app/build/outputs/apk/arm64-v8a/release/app-arm64-v8a-release${SIGNED_SUFFIX}.apk"
+          mv "$SOURCE_ARM64_APK" "$ARM64_APK_NAME"
 
-          # Upload artifacts to the release
-          gh release upload ${{ github.event.release.tag_name }} "$UNIVERSAL_APK_NAME" "$ARM64_APK_NAME" --clobber
+          # Upload artifact to the release
+          gh release upload ${{ github.event.release.tag_name }} "$ARM64_APK_NAME" --clobber
