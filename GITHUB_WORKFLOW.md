@@ -16,7 +16,12 @@
     *   Android SDK 和 NDK
     *   带有安卓编译目标的 Rust 工具链
 
-2.  **安装依赖**: 使用 `bun install` 命令安装项目的前端依赖。
+2.  **缓存依赖**: 为了加速构建，工作流会缓存以下依赖：
+    *   Rust (cargo) 依赖
+    *   Bun 依赖
+    *   Android NDK 和 Gradle 依赖
+
+3.  **安装依赖**: 使用 `bun install` 命令安装项目的前端依赖。
 
 3.  **构建 APK**: 构建两个版本的安卓应用程序：
     *   一个 **通用 (universal)** APK，可在大多数安卓设备上运行。

@@ -29,6 +29,17 @@ jobs:
       - name: Install NDK
         run: sdkmanager "ndk;27.0.11902837"
 
+      - name: Cache Gradle and NDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ${{ env.ANDROID_HOME }}/ndk/27.0.11902837
+          key: ${{ runner.os }}-gradle-ndk-${{ hashFiles('**/build.gradle.kts', '**/gradle.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-ndk-
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
