@@ -1,0 +1,90 @@
+name: Release Tauri App
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  build-android:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'bun'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: sdkmanager "ndk;27.0.11902837"
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ubuntu-latest-android-cargo
+
+      - name: Install frontend dependencies
+        run: bun install
+
+      - name: Build and upload Android APKs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.11902837
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          # Get version from package.json
+          APP_VERSION=$(node -p "require('./package.json').version")
+          
+          # Define APK names
+          UNIVERSAL_APK_NAME="tauri-app_${APP_VERSION}_universal.apk"
+          ARM64_APK_NAME="tauri-app_${APP_VERSION}_arm64.apk"
+          
+          # Setup signing if secrets are provided
+          SOURCE_APK_NAME="app-release-unsigned.apk"
+          if [ -n "${{ secrets.ANDROID_KEY_BASE64 }}" ]; then
+            echo "Android signing secrets found. Setting up for a signed build."
+            SOURCE_APK_NAME="app-release.apk"
+            
+            # Create keystore.properties
+            echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > src-tauri/gen/android/keystore.properties
+            echo "password=${{ secrets.ANDROID_KEY_PASSWORD }}" >> src-tauri/gen/android/keystore.properties
+            echo "storeFile=$RUNNER_TEMP/keystore.jks" >> src-tauri/gen/android/keystore.properties
+            
+            # Decode and create the keystore file
+            base64 -d <<< "${{ secrets.ANDROID_KEY_BASE64 }}" > $RUNNER_TEMP/keystore.jks
+          else
+            echo "Android signing secrets not found. Proceeding with an unsigned build."
+          fi
+          
+          # Build universal APK
+          bun run tauri android build
+          mv "src-tauri/gen/android/app/build/outputs/apk/release/$SOURCE_APK_NAME" "$UNIVERSAL_APK_NAME"
+          
+          # Build arm64 APK
+          bun run tauri android build -t aarch64
+          mv "src-tauri/gen/android/app/build/outputs/apk/release/$SOURCE_APK_NAME" "$ARM64_APK_NAME"
+
+          # Upload artifacts to the release
+          gh release upload ${{ github.event.release.tag_name }} "$UNIVERSAL_APK_NAME" "$ARM64_APK_NAME" --clobber
