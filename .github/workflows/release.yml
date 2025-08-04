@@ -17,12 +17,6 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'bun'
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -55,7 +49,7 @@ jobs:
           TAURI_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           # Get version from package.json
-          APP_VERSION=$(node -p "require('./package.json').version")
+          APP_VERSION=$(bun -e "console.log(require('./package.json').version)")
           
           # Define APK names
           UNIVERSAL_APK_NAME="tauri-app_${APP_VERSION}_universal.apk"

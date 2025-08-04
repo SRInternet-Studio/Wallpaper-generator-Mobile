@@ -11,8 +11,7 @@
 该工作流执行以下步骤：
 
 1.  **环境设置**: 设置一个 Ubuntu 环境，并安装 Tauri 安卓构建所需的所有工具，包括：
-    *   Bun (包管理器)
-    *   Node.js
+    *   Bun (JavaScript 运行时和包管理器)
     *   Java (JDK 17)
     *   Android SDK 和 NDK
     *   带有安卓编译目标的 Rust 工具链
@@ -95,7 +94,12 @@
 
 *   **`ANDROID_KEY_BASE64`**:
     *   这是您的密钥库文件 (`.jks` 文件) 经过 Base64 编码后的字符串。
-    *   在 macOS 或 Linux 系统上，您可以使用以下命令来获取：
+    *   在不同操作系统上，`base64` 命令的用法略有不同。
+    *   **在 macOS 上**，您需要使用 `-i` 标志来指定输入文件：
+        ```sh
+        base64 -i my-release-key.jks
+        ```
+    *   **在 Linux 系统上**，命令通常是：
         ```sh
         base64 my-release-key.jks
         ```
