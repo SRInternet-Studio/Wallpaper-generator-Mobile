@@ -95,8 +95,9 @@ jobs:
           
           # Build arm64 APK
           bun run tauri android build -t aarch64
-          SOURCE_ARM64_APK="src-tauri/gen/android/app/build/outputs/apk/arm64-v8a/release/app-arm64-v8a-release${SIGNED_SUFFIX}.apk"
-          mv "$SOURCE_ARM64_APK" "$ARM64_APK_NAME"
+          # The output path is consistently 'universal' regardless of the target arch
+          SOURCE_APK="src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release${SIGNED_SUFFIX}.apk"
+          mv "$SOURCE_APK" "$ARM64_APK_NAME"
 
           # Upload artifact to the release
           gh release upload ${{ github.event.release.tag_name }} "$ARM64_APK_NAME" --clobber
