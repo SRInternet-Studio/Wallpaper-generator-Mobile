@@ -17,6 +17,18 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
 
+      - name: Cache Bun dependencies
+        id: cache-bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install frontend dependencies
+        run: bun install
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -26,10 +38,8 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install NDK
-        run: sdkmanager "ndk;27.0.11902837"
-
       - name: Cache Gradle and NDK
+        id: cache-android
         uses: actions/cache@v4
         with:
           path: |
@@ -40,6 +50,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-ndk-
 
+      - name: Install NDK
+        if: steps.cache-android.outputs.cache-hit != 'true'
+        run: sdkmanager "ndk;27.0.11902837"
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -47,10 +61,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ubuntu-latest-android-cargo
-
-      - name: Install frontend dependencies
-        run: bun install
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build and upload Android APKs
         env:
