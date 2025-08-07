@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, ImageListItemBar } from '@mui/material';
+import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, ImageListItemBar, useMediaQuery } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
 import CloseIcon from '@mui/icons-material/Close';
@@ -15,6 +16,14 @@ export default function GeneratorPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const theme = useTheme();
+  const isSm = useMediaQuery(theme.breakpoints.up('sm'));
+  const isMd = useMediaQuery(theme.breakpoints.up('md'));
+  const isLg = useMediaQuery(theme.breakpoints.up('lg'));
+  const isXl = useMediaQuery(theme.breakpoints.up('xl'));
+
+  const cols = isXl ? 5 : isLg ? 4 : isMd ? 3 : isSm ? 2 : 1;
 
   useEffect(() => {
     async function fetchApiDetails() {
@@ -187,9 +196,9 @@ export default function GeneratorPage() {
           <Typography variant="h5" gutterBottom>
             生成结果
           </Typography>
-          <ImageList variant="masonry" cols={3} gap={8}>
+          <ImageList variant="masonry" cols={cols} gap={8}>
             {generatedImages.map((img) => (
-              <ImageListItem key={img} onClick={() => handleImageClick(img)} sx={{ cursor: 'pointer', borderRadius: '8px', overflow: 'hidden' }}>
+              <ImageListItem key={img} onClick={() => handleImageClick(img)} sx={{ cursor: 'pointer', borderRadius: '8px', overflow: 'hidden', boxShadow: 4, border: '1px solid rgba(0, 0, 0, 0.1)' }}>
                 <img
                   src={img}
                   alt=""
