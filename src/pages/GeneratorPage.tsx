@@ -2,11 +2,10 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, useMediaQuery, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
 import CloseIcon from '@mui/icons-material/Close';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { getApiByName, ApiSource, generateImages, shareImage, downloadImage } from '../services/market';
+import { getApiByName, ApiSource, generateImages, downloadImage } from '../services/market';
 
 export default function GeneratorPage() {
   const { apiName } = useParams<{ apiName: string }>();
@@ -85,13 +84,6 @@ export default function GeneratorPage() {
 
   const handleActionMenuClose = () => {
     setActionMenuImage(null);
-  };
-
-  const handleShareAction = () => {
-    if (actionMenuImage) {
-      shareImage(actionMenuImage);
-    }
-    handleActionMenuClose();
   };
 
   const handleDownloadAction = () => {
@@ -297,14 +289,6 @@ export default function GeneratorPage() {
             }}
           />
           <List>
-            <ListItem disablePadding>
-              <ListItemButton onClick={handleShareAction}>
-                <ListItemIcon>
-                  <ShareIcon />
-                </ListItemIcon>
-                <ListItemText primary="分享" />
-              </ListItemButton>
-            </ListItem>
             <ListItem disablePadding>
               <ListItemButton onClick={handleDownloadAction}>
                 <ListItemIcon>
