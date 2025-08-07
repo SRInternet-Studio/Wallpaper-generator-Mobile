@@ -1,7 +1,6 @@
 import { fetch } from '@tauri-apps/plugin-http';
 import { getSetting } from './settings';
 import { writeFile, mkdir, exists } from '@tauri-apps/plugin-fs';
-import { download } from '@tauri-apps/plugin-upload';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { APICORE_SCHEMA } from './schema';
@@ -487,7 +486,9 @@ export async function shareImage(imageUrl: string): Promise<void> {
 
 export async function downloadImage(imageUrl: string): Promise<void> {
     try {
+        const saveData = await getImageDataAsUint8Array(imageUrl);
         const saveDir = await downloadDir();
+
         if (!await exists(saveDir)) {
             await mkdir(saveDir, { recursive: true });
         }
@@ -495,12 +496,7 @@ export async function downloadImage(imageUrl: string): Promise<void> {
         const fileName = new URL(imageUrl).pathname.split('/').pop()?.replace(/[<>:"/\\|?*]/g, '_') || `image-${Date.now()}.jpg`;
         const filePath = await join(saveDir, fileName);
 
-        if (imageUrl.startsWith('data:')) {
-            const saveData = await getImageDataAsUint8Array(imageUrl);
-            await writeFile(filePath, saveData);
-        } else {
-            await download(imageUrl, filePath);
-        }
+        await writeFile(filePath, saveData);
 
         await sendNotification({
             title: '下载完成',

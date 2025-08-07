@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Typography, Button, Paper, Box, TextField, CircularProgress, Switch, FormControlLabel, IconButton, Snackbar } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { getSetting, setSetting } from '../services/settings';
-import { downloadDir, join } from '@tauri-apps/api/path';
+import { downloadDir } from '@tauri-apps/api/path';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { clearApiCache } from '../services/market';
 

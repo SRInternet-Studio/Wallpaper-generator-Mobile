@@ -30,6 +30,6 @@
       ]
     },
     "sharesheet:default",
-    "upload:default"
+    "fs:allow-write-file"
   ]
 }
