@@ -13,6 +13,12 @@ export interface ApiSource {
   category: string;
 }
 
+let apiCache: ApiSource[] | null = null;
+
+export function clearApiCache(): void {
+  apiCache = null;
+}
+
 async function fetchJson<T>(url: string, pat?: string): Promise<T> {
     const headers: Record<string, string> = {
         'Accept': 'application/vnd.github.v3+json'
@@ -69,11 +75,15 @@ export async function getApisByCategory(category: string): Promise<ApiSource[]> 
 }
 
 export async function getAllApis(): Promise<ApiSource[]> {
+    if (apiCache) {
+        return apiCache;
+    }
     try {
         const categories = await getApiCategories();
         const allApisPromises = categories.map(category => getApisByCategory(category));
         const apisByCategory = await Promise.all(allApisPromises);
-        return apisByCategory.flat();
+        apiCache = apisByCategory.flat();
+        return apiCache;
     } catch (error) {
         console.error('Error fetching all APIs:', error);
         return [];
@@ -125,18 +135,29 @@ export async function generateImages(apiConfig: ApiSource, payload: Record<strin
             throw new Error(`API request failed: ${response.status}`);
         }
 
-        const data = await response.json();
-        const path = responseConfig.image?.path || '';
-        let imageUrls = path.split('.').reduce((acc: any, part: string) => {
-            if (acc === null || typeof acc === 'undefined') return null;
-            if (part === '[*]') {
-                return Array.isArray(acc) ? acc.flatMap((item: any) => item) : null;
-            }
-            return Array.isArray(acc) ? acc.map((item: any) => item?.[part]) : acc?.[part];
-        }, data);
+        const textData = await response.text();
+        let imageUrls: any[] = [];
 
-        if (!Array.isArray(imageUrls)) {
-            imageUrls = [imageUrls];
+        try {
+            // Try to parse as JSON first
+            const data = JSON.parse(textData);
+            const path = responseConfig.image?.path || '';
+            
+            let extractedUrls = path.split('.').reduce((acc: any, part: string) => {
+                if (acc === null || typeof acc === 'undefined') return null;
+                if (part === '[*]') {
+                    return Array.isArray(acc) ? acc.flatMap((item: any) => item) : null;
+                }
+                return Array.isArray(acc) ? acc.map((item: any) => item?.[part]) : acc?.[part];
+            }, data);
+
+            if (extractedUrls) {
+                imageUrls = Array.isArray(extractedUrls) ? extractedUrls : [extractedUrls];
+            }
+
+        } catch (e) {
+            // If JSON parsing fails, treat the response as a list of URLs separated by newlines
+            imageUrls = textData.split('\n').filter(url => url.trim().startsWith('http'));
         }
 
         return imageUrls.filter(Boolean);

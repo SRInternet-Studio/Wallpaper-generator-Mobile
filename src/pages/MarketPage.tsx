@@ -1,21 +1,28 @@
 import { useEffect, useState } from 'react';
-import { Typography, Grid, Card, CardContent, CardMedia, CircularProgress, Box, CardActionArea } from '@mui/material';
-import { getAllApis, ApiSource } from '../services/market';
+import { Typography, Grid, Card, CardContent, CardMedia, CircularProgress, Box, CardActionArea, Button } from '@mui/material';
+import { getAllApis, ApiSource, clearApiCache } from '../services/market';
 import { Link } from 'react-router-dom';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 export default function MarketPage() {
   const [apiSources, setApiSources] = useState<ApiSource[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchApis = async () => {
+    setLoading(true);
+    const apis = await getAllApis();
+    setApiSources(apis);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    async function fetchApis() {
-      setLoading(true);
-      const apis = await getAllApis();
-      setApiSources(apis);
-      setLoading(false);
-    }
     fetchApis();
   }, []);
+
+  const handleRefresh = () => {
+    clearApiCache();
+    fetchApis();
+  };
 
   if (loading) {
     return (
@@ -27,9 +34,14 @@ export default function MarketPage() {
 
   return (
     <div>
-      <Typography variant="h4" gutterBottom>
-        图片源市场
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4" gutterBottom>
+          图片源市场
+        </Typography>
+        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefresh}>
+          刷新
+        </Button>
+      </Box>
       <Grid container spacing={3}>
         {apiSources.map((source) => (
           <Grid size={{ xs: 12, sm: 6, md: 4 }} key={source.name}>

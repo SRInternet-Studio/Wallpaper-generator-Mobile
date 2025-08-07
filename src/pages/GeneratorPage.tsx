@@ -93,7 +93,7 @@ export default function GeneratorPage() {
               onChange={(e) => handleFormChange(name, e.target.value)}
             >
               {(friendly_value || value).map((option: string, index: number) => (
-                <MenuItem key={option} value={value[index]}>
+                <MenuItem key={value[index]} value={value[index]}>
                   {option}
                 </MenuItem>
               ))}
