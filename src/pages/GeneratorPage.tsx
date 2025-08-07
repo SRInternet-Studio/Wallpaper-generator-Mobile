@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, ImageListItemBar, useMediaQuery } from '@mui/material';
+import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, useMediaQuery, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -16,6 +16,10 @@ export default function GeneratorPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [actionMenuImage, setActionMenuImage] = useState<string | null>(null);
+
+  const longPressTimer = useRef<number | null>(null);
+  const longPressTriggered = useRef(false);
 
   const theme = useTheme();
   const isSm = useMediaQuery(theme.breakpoints.up('sm'));
@@ -73,6 +77,48 @@ export default function GeneratorPage() {
 
   const handleCloseModal = () => {
     setSelectedImage(null);
+  };
+
+  const handleImageLongPress = (img: string) => {
+    setActionMenuImage(img);
+  };
+
+  const handleActionMenuClose = () => {
+    setActionMenuImage(null);
+  };
+
+  const handleShareAction = () => {
+    if (actionMenuImage) {
+      shareImage(actionMenuImage);
+    }
+    handleActionMenuClose();
+  };
+
+  const handleDownloadAction = () => {
+    if (actionMenuImage) {
+      downloadImage(actionMenuImage);
+    }
+    handleActionMenuClose();
+  };
+
+  const handleTouchStart = (img: string) => {
+    longPressTriggered.current = false;
+    longPressTimer.current = window.setTimeout(() => {
+      longPressTriggered.current = true;
+      handleImageLongPress(img);
+    }, 500); // 500ms for long press
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+    }
+  };
+
+  const handleClick = (img: string) => {
+    if (!longPressTriggered.current) {
+      handleImageClick(img);
+    }
   };
 
   const renderParameter = (param: any, index: number) => {
@@ -199,38 +245,77 @@ export default function GeneratorPage() {
           </Typography>
           <ImageList variant="masonry" cols={cols} gap={8}>
             {generatedImages.map((img) => (
-              <ImageListItem key={img} onClick={() => handleImageClick(img)} sx={{ cursor: 'pointer', borderRadius: '8px', overflow: 'hidden', boxShadow: 4, border: '1px solid rgba(0, 0, 0, 0.1)' }}>
+              <ImageListItem
+                key={img}
+                onClick={() => handleClick(img)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  handleImageLongPress(img);
+                }}
+                onTouchStart={() => handleTouchStart(img)}
+                onTouchEnd={handleTouchEnd}
+                onTouchMove={handleTouchEnd} // Cancel long press if finger moves
+                sx={{ cursor: 'pointer', borderRadius: '8px', overflow: 'hidden', boxShadow: 4, border: '1px solid rgba(0, 0, 0, 0.1)' }}
+              >
                 <img
                   src={img}
                   alt=""
                   loading="lazy"
-                />
-                <ImageListItemBar
-                  title=" "
-                  actionIcon={(
-                    <>
-                      <IconButton
-                        sx={{ color: 'rgba(255, 255, 255, 0.8)' }}
-                        aria-label={`share ${img}`}
-                        onClick={(e) => { e.stopPropagation(); shareImage(img); }}
-                      >
-                        <ShareIcon />
-                      </IconButton>
-                      <IconButton
-                        sx={{ color: 'rgba(255, 255, 255, 0.8)' }}
-                        aria-label={`download ${img}`}
-                        onClick={(e) => { e.stopPropagation(); downloadImage(img); }}
-                      >
-                        <DownloadIcon />
-                      </IconButton>
-                    </>
-                  )}
                 />
               </ImageListItem>
             ))}
           </ImageList>
         </Box>
       )}
+
+      <Drawer
+        anchor="bottom"
+        open={!!actionMenuImage}
+        onClose={handleActionMenuClose}
+        sx={{ zIndex: 1400 }} // Higher than the image modal
+        slotProps={{
+          paper: {
+            sx: {
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+            },
+          },
+        }}
+      >
+        <Box
+          sx={{ width: 'auto', pb: 2, pt: 1 }}
+          role="presentation"
+        >
+          <Box
+            sx={{
+              width: 40,
+              height: 5,
+              backgroundColor: 'grey.300',
+              borderRadius: 3,
+              mx: 'auto',
+              my: 1,
+            }}
+          />
+          <List>
+            <ListItem disablePadding>
+              <ListItemButton onClick={handleShareAction}>
+                <ListItemIcon>
+                  <ShareIcon />
+                </ListItemIcon>
+                <ListItemText primary="分享" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton onClick={handleDownloadAction}>
+                <ListItemIcon>
+                  <DownloadIcon />
+                </ListItemIcon>
+                <ListItemText primary="下载" />
+              </ListItemButton>
+            </ListItem>
+          </List>
+        </Box>
+      </Drawer>
 
       {selectedImage && (
         <Box
