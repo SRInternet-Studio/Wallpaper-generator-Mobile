@@ -66,7 +66,7 @@ export default function Layout() {
       <CssBaseline />
       <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 2 }}>
         <Toolbar>
-          <Typography variant="h6" noWrap component="div" sx={{ mt: 3, mb: 1 }}>
+          <Typography variant="h6" noWrap component="div" sx={{ mt: 4, mb: 1 }}>
             壁纸生成器 NEXT
           </Typography>
         </Toolbar>
