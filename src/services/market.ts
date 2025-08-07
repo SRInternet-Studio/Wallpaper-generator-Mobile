@@ -3,7 +3,7 @@ import { getSetting } from './settings';
 import { writeFile, mkdir, exists } from '@tauri-apps/plugin-fs';
 import { sendNotification } from '@tauri-apps/plugin-notification';
 import { downloadDir, join, tempDir } from '@tauri-apps/api/path';
-import { shareFiles } from '@buildyourwebapp/tauri-plugin-sharesheet';
+import { invoke } from '@tauri-apps/api/core';
 
 const REPO_URL = 'https://raw.githubusercontent.com/IntelliMarkets/Wallpaper_API_Index/main/';
 
@@ -164,7 +164,16 @@ export async function shareImage(imageUrl: string): Promise<void> {
     const tempFilePath = await downloadImageToTemp(imageUrl);
     if (tempFilePath) {
         try {
-            await shareFiles({ files: [tempFilePath] });
+            const mimeType = imageUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
+            const title = tempFilePath.split('/').pop() || 'image';
+            
+            await invoke("plugin:sharesheet|share_file", {
+              file: tempFilePath,
+              options: {
+                mimeType,
+                title,
+              },
+            });
         } catch (error) {
             console.error('Failed to share image:', error);
             await sendNotification({

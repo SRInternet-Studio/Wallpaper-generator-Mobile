@@ -10,7 +10,6 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@buildyourwebapp/tauri-plugin-sharesheet": "^0.0.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@fontsource/roboto": "^5.2.6",
