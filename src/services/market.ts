@@ -1,6 +1,7 @@
 import { fetch } from '@tauri-apps/plugin-http';
 import { getSetting } from './settings';
 import { writeFile, mkdir, exists } from '@tauri-apps/plugin-fs';
+import { download } from '@tauri-apps/plugin-upload';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { APICORE_SCHEMA } from './schema';
@@ -369,8 +370,10 @@ export async function generateImages(apiConfig: ApiSource, formState: Record<num
 
         switch (imageConfig.content_type) {
             case 'BINARY':
-                const blob = new Blob([responseData]);
-                imageUrls = [URL.createObjectURL(blob)];
+                let base64String = btoa(String.fromCharCode(...new Uint8Array(responseData)));
+                // This is a naive way to get mime type, might need improvement
+                const mimeType = response.headers.get('Content-Type') || 'image/jpeg';
+                imageUrls = [`data:${mimeType};base64,${base64String}`];
                 break;
 
             case 'BASE64':
@@ -417,16 +420,31 @@ export async function generateImages(apiConfig: ApiSource, formState: Record<num
     }
 }
 
-async function downloadImageToTemp(imageUrl: string): Promise<string | null> {
-    try {
+async function getImageDataAsUint8Array(imageUrl: string): Promise<Uint8Array> {
+    if (imageUrl.startsWith('data:')) {
+        // Handle base64 data URL
+        const base64 = imageUrl.split(',')[1];
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+    } else {
+        // Handle regular URL
         const response = await fetch(imageUrl, { method: 'GET' });
         if (!response.ok) {
             throw new Error(`Failed to download image: ${response.status}`);
         }
-        
         const arrayBuffer = await response.arrayBuffer();
-        const saveData = new Uint8Array(arrayBuffer);
-        
+        return new Uint8Array(arrayBuffer);
+    }
+}
+
+async function downloadImageToTemp(imageUrl: string): Promise<string | null> {
+    try {
+        const saveData = await getImageDataAsUint8Array(imageUrl);
         const temp = await tempDir();
         const fileName = new URL(imageUrl).pathname.split('/').pop()?.replace(/[<>:"/\\|?*]/g, '_') || `image-${Date.now()}.jpg`;
         const filePath = await join(temp, fileName);
@@ -469,17 +487,7 @@ export async function shareImage(imageUrl: string): Promise<void> {
 
 export async function downloadImage(imageUrl: string): Promise<void> {
     try {
-        const response = await fetch(imageUrl, { method: 'GET' });
-
-        if (!response.ok) {
-            throw new Error(`Failed to download image: ${response.status}`);
-        }
-        
-        const arrayBuffer = await response.arrayBuffer();
-        const saveData = new Uint8Array(arrayBuffer);
-        
         const saveDir = await downloadDir();
-
         if (!await exists(saveDir)) {
             await mkdir(saveDir, { recursive: true });
         }
@@ -487,7 +495,12 @@ export async function downloadImage(imageUrl: string): Promise<void> {
         const fileName = new URL(imageUrl).pathname.split('/').pop()?.replace(/[<>:"/\\|?*]/g, '_') || `image-${Date.now()}.jpg`;
         const filePath = await join(saveDir, fileName);
 
-        await writeFile(filePath, saveData);
+        if (imageUrl.startsWith('data:')) {
+            const saveData = await getImageDataAsUint8Array(imageUrl);
+            await writeFile(filePath, saveData);
+        } else {
+            await download(imageUrl, filePath);
+        }
 
         await sendNotification({
             title: '下载完成',

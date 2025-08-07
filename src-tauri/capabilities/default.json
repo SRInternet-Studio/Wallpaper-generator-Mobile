@@ -28,6 +28,7 @@
         { "path": "$PICTURE/**" }
       ]
     },
-    "sharesheet:default"
+    "sharesheet:default",
+    "upload:default"
   ]
 }
