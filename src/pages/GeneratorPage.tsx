@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, ImageListItemBar } from '@mui/material';
+import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, ImageListItemBar, Modal } from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
 import { getApiByName, ApiSource, generateImages, shareImage, downloadImage } from '../services/market';
@@ -12,6 +12,7 @@ export default function GeneratorPage() {
   const [formState, setFormState] = useState<Record<string, any>>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchApiDetails() {
@@ -52,6 +53,14 @@ export default function GeneratorPage() {
     const imageUrls = await generateImages(apiSource, formState);
     setGeneratedImages(imageUrls);
     setIsGenerating(false);
+  };
+
+  const handleImageClick = (img: string) => {
+    setSelectedImage(img);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedImage(null);
   };
 
   const renderParameter = (param: any, index: number) => {
@@ -178,27 +187,27 @@ export default function GeneratorPage() {
           </Typography>
           <ImageList variant="masonry" cols={3} gap={8}>
             {generatedImages.map((img) => (
-              <ImageListItem key={img}>
+              <ImageListItem key={img} onClick={() => handleImageClick(img)} sx={{ cursor: 'pointer' }}>
                 <img
                   src={img}
                   alt=""
                   loading="lazy"
                 />
                 <ImageListItemBar
-                  title=" " 
+                  title=" "
                   actionIcon={(
                     <>
                       <IconButton
                         sx={{ color: 'rgba(255, 255, 255, 0.8)' }}
                         aria-label={`share ${img}`}
-                        onClick={() => shareImage(img)}
+                        onClick={(e) => { e.stopPropagation(); shareImage(img); }}
                       >
                         <ShareIcon />
                       </IconButton>
                       <IconButton
                         sx={{ color: 'rgba(255, 255, 255, 0.8)' }}
                         aria-label={`download ${img}`}
-                        onClick={() => downloadImage(img)}
+                        onClick={(e) => { e.stopPropagation(); downloadImage(img); }}
                       >
                         <DownloadIcon />
                       </IconButton>
@@ -210,6 +219,18 @@ export default function GeneratorPage() {
           </ImageList>
         </Box>
       )}
+
+      <Modal
+        open={!!selectedImage}
+        onClose={handleCloseModal}
+        aria-labelledby="image-modal-title"
+        aria-describedby="image-modal-description"
+        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Box>
+          <img src={selectedImage || ''} alt="enlarged" style={{ maxHeight: '90vh', maxWidth: '90vw' }} />
+        </Box>
+      </Modal>
     </Paper>
   );
 }
