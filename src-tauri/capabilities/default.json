@@ -25,6 +25,7 @@
         { "path": "$DOWNLOAD/**" },
         { "path": "$PICTURE/**" }
       ]
-    }
+    },
+    "sharesheet:default"
   ]
 }
