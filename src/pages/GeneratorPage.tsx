@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, ImageListItemBar, Modal } from '@mui/material';
+import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, ImageListItemBar } from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
+import CloseIcon from '@mui/icons-material/Close';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { getApiByName, ApiSource, generateImages, shareImage, downloadImage } from '../services/market';
 
 export default function GeneratorPage() {
@@ -187,7 +189,7 @@ export default function GeneratorPage() {
           </Typography>
           <ImageList variant="masonry" cols={3} gap={8}>
             {generatedImages.map((img) => (
-              <ImageListItem key={img} onClick={() => handleImageClick(img)} sx={{ cursor: 'pointer' }}>
+              <ImageListItem key={img} onClick={() => handleImageClick(img)} sx={{ cursor: 'pointer', borderRadius: '8px', overflow: 'hidden' }}>
                 <img
                   src={img}
                   alt=""
@@ -220,17 +222,50 @@ export default function GeneratorPage() {
         </Box>
       )}
 
-      <Modal
-        open={!!selectedImage}
-        onClose={handleCloseModal}
-        aria-labelledby="image-modal-title"
-        aria-describedby="image-modal-description"
-        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      >
-        <Box>
-          <img src={selectedImage || ''} alt="enlarged" style={{ maxHeight: '90vh', maxWidth: '90vw' }} />
+      {selectedImage && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1300, // Higher than other elements
+          }}
+        >
+          <IconButton
+            onClick={handleCloseModal}
+            sx={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              color: 'white',
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              },
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+          <Box onClick={(e) => e.stopPropagation()} sx={{ width: '90vw', height: '90vh', borderRadius: '8px', overflow: 'hidden' }}>
+            <TransformWrapper>
+              <TransformComponent
+                wrapperStyle={{ width: '100%', height: '100%' }}
+                contentStyle={{ width: '100%', height: '100%' }}
+              >
+                <div style={{ width: '100%', height: '100%', borderRadius: '8px', overflow: 'hidden' }}>
+                  <img src={selectedImage} alt="enlarged" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                </div>
+              </TransformComponent>
+            </TransformWrapper>
+          </Box>
         </Box>
-      </Modal>
+      )}
     </Paper>
   );
 }
