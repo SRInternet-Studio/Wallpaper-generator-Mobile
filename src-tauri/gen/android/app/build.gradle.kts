@@ -15,27 +15,14 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 36
-    namespace = "com.tauri_app.app"
+    namespace = "com.srinternet.wallpapergenerator"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "com.tauri_app.app"
+        applicationId = "com.srinternet.wallpapergenerator"
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
-    }
-    signingConfigs {
-        create("release") {
-            val keyProps = Properties()
-            val keyPropsFile = file("keystore.properties")
-            if (keyPropsFile.exists()) {
-                keyProps.load(keyPropsFile.reader())
-                keyAlias = keyProps.getProperty("keyAlias")
-                keyPassword = keyProps.getProperty("password")
-                storeFile = file(keyProps.getProperty("storeFile"))
-                storePassword = keyProps.getProperty("password")
-            }
-        }
     }
     buildTypes {
         getByName("debug") {
@@ -56,7 +43,6 @@ android {
                     .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
                     .toList().toTypedArray()
             )
-            signingConfig = signingConfigs.getByName("release")
         }
     }
     kotlinOptions {

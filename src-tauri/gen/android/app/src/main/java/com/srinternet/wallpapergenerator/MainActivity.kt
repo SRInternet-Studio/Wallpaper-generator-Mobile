@@ -1,4 +1,4 @@
-package com.tauri_app.app
+package com.srinternet.wallpapergenerator
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge

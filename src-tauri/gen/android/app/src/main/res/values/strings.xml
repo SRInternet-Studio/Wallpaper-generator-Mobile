@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">tauri-app</string>
-    <string name="main_activity_title">tauri-app</string>
+    <string name="app_name">Wallpaper Generator</string>
+    <string name="main_activity_title">Wallpaper Generator</string>
 </resources>
