@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Typography, Button, Paper, Box, TextField, CircularProgress, Switch, FormControlLabel } from '@mui/material';
 import { getSetting, setSetting } from '../services/settings';
-import { open } from '@tauri-apps/plugin-dialog';
 import { downloadDir } from '@tauri-apps/api/path';
 import { clearApiCache } from '../services/market';
 
@@ -38,17 +37,6 @@ export default function SettingsPage() {
     loadSettings();
   }, []);
 
-  const handleSelectDirectory = async () => {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      defaultPath: await downloadDir(),
-    });
-
-    if (typeof selected === 'string') {
-      setDownloadPath(selected);
-    }
-  };
 
   const handleSaveSettings = async () => {
     await setSetting('download_path', downloadPath);
@@ -82,7 +70,7 @@ export default function SettingsPage() {
               readOnly: true,
             }}
           />
-          <Button variant="outlined" onClick={handleSelectDirectory}>
+          <Button variant="outlined" disabled>
             选择文件夹
           </Button>
         </Box>
