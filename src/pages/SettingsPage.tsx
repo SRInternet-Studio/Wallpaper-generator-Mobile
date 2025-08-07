@@ -8,7 +8,7 @@ import { clearApiCache } from '../services/market';
 export default function SettingsPage() {
   const [downloadPath, setDownloadPath] = useState('');
   const [githubPat, setGithubPat] = useState('');
-  const [useStaticIndex, setUseStaticIndex] = useState(false);
+  const [useStaticIndex, setUseStaticIndex] = useState(true);
   const [githubApiUrl, setGithubApiUrl] = useState('');
   const [staticApiUrl, setStaticApiUrl] = useState('');
   const [loading, setLoading] = useState(true);
@@ -25,7 +25,7 @@ export default function SettingsPage() {
       setGithubPat(pat || '');
 
       const staticIndex = await getSetting<boolean>('use_static_index');
-      setUseStaticIndex(staticIndex || false);
+      setUseStaticIndex(staticIndex === null ? true : staticIndex);
 
       const githubUrl = await getSetting<string>('github_api_url');
       setGithubApiUrl(githubUrl || 'https://api.github.com/repos/IntelliMarkets/Wallpaper_API_Index/contents/');
