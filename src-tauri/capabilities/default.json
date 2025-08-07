@@ -8,10 +8,12 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "dialog:default",
     "store:default",
     "notification:default",
     "log:default",
+    {
+      "identifier": "clipboard-manager:allow-write-text"
+    },
     {
       "identifier": "http:default",
       "allow": [

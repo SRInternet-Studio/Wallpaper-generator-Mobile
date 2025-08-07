@@ -478,10 +478,7 @@ export async function downloadImage(imageUrl: string): Promise<void> {
         const arrayBuffer = await response.arrayBuffer();
         const saveData = new Uint8Array(arrayBuffer);
         
-        let saveDir = await getSetting<string>('download_path');
-        if (!saveDir) {
-            saveDir = await downloadDir();
-        }
+        const saveDir = await downloadDir();
 
         if (!await exists(saveDir)) {
             await mkdir(saveDir, { recursive: true });

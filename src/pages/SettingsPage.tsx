@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Typography, Button, Paper, Box, TextField, CircularProgress, Switch, FormControlLabel } from '@mui/material';
+import { Typography, Button, Paper, Box, TextField, CircularProgress, Switch, FormControlLabel, IconButton, Snackbar } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { getSetting, setSetting } from '../services/settings';
-import { downloadDir } from '@tauri-apps/api/path';
+import { downloadDir, join } from '@tauri-apps/api/path';
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { clearApiCache } from '../services/market';
 
 export default function SettingsPage() {
   const [downloadPath, setDownloadPath] = useState('');
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [githubPat, setGithubPat] = useState('');
   const [useStaticIndex, setUseStaticIndex] = useState(true);
   const [githubApiUrl, setGithubApiUrl] = useState('');
@@ -14,10 +17,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     async function loadSettings() {
-      let path = await getSetting<string>('download_path');
-      if (!path) {
-        path = await downloadDir();
-      }
+      const path = await downloadDir();
       setDownloadPath(path);
 
       const pat = await getSetting<string>('github_pat');
@@ -39,13 +39,19 @@ export default function SettingsPage() {
 
 
   const handleSaveSettings = async () => {
-    await setSetting('download_path', downloadPath);
     await setSetting('github_pat', githubPat);
     await setSetting('use_static_index', useStaticIndex);
     await setSetting('github_api_url', githubApiUrl);
     await setSetting('static_api_url', staticApiUrl);
     clearApiCache();
     alert('设置已保存！');
+  };
+
+  const handleCopyPath = async () => {
+    if (downloadPath) {
+      await writeText(downloadPath);
+      setSnackbarOpen(true);
+    }
   };
 
   if (loading) {
@@ -61,20 +67,22 @@ export default function SettingsPage() {
         <Typography variant="h6" gutterBottom>
           图片下载路径
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <TextField
-            fullWidth
-            variant="outlined"
-            value={downloadPath}
-            InputProps={{
-              readOnly: true,
-            }}
-          />
-          <Button variant="outlined" disabled>
-            选择文件夹
-          </Button>
-        </Box>
+        <Typography variant="body1" color="text.secondary">
+          所有图片将自动保存至应用的专属下载目录中，卸载应用时数据将被清除。
+        </Typography>
+        <Paper variant="outlined" sx={{ p: 1, mt: 1, display: 'flex', alignItems: 'center', backgroundColor: 'action.hover' }}>
+          <Typography sx={{ wordBreak: 'break-all', flexGrow: 1 }}>{downloadPath}</Typography>
+          <IconButton onClick={handleCopyPath} size="small">
+            <ContentCopyIcon fontSize="small" />
+          </IconButton>
+        </Paper>
       </Box>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={2000}
+        onClose={() => setSnackbarOpen(false)}
+        message="路径已复制到剪贴板"
+      />
       <Box sx={{ mt: 3 }}>
         <Typography variant="h6" gutterBottom>
           GitHub 个人访问令牌 (PAT)
