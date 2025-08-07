@@ -114,18 +114,18 @@ export async function getApiByName(apiName: string): Promise<ApiSource | null> {
     }
 }
 
-function constructApiUrl(api: string, payload: Record<string, any>, apiConfig: ApiSource): string {
+function constructApiUrl(api: string, formState: Record<number, any>, apiConfig: ApiSource): string {
     let url = api.replace(/\/$/, '').replace(/\?$/, '');
     const pathParams: string[] = [];
     const queryParams: Record<string, string> = {};
 
     // This logic mirrors the Python construct_api function
-    for (const param of apiConfig.content.parameters) {
+    apiConfig.content.parameters.forEach((param: any, index: number) => {
         const key = param.name;
-        const value = payload[key];
+        const value = formState[index];
 
         if (value === undefined || value === null) {
-            continue;
+            return; // continue
         }
 
         // Path parameter if name is null, undefined, or an empty string
@@ -139,7 +139,7 @@ function constructApiUrl(api: string, payload: Record<string, any>, apiConfig: A
                 queryParams[key] = String(value);
             }
         }
-    }
+    });
 
     if (pathParams.length > 0) {
         url += '/' + pathParams.join('/');
@@ -252,11 +252,11 @@ function parseResponse(data: any, path: string): any {
 }
 
 
-export async function generateImages(apiConfig: ApiSource, payload: Record<string, any>): Promise<string[]> {
+export async function generateImages(apiConfig: ApiSource, formState: Record<number, any>): Promise<string[]> {
     console.log("Generating images with config:", apiConfig);
-    console.log("Payload:", payload);
+    console.log("Payload (formState by index):", formState);
 
-    const { link, func, response: responseConfig } = apiConfig.content;
+    const { link, func, response: responseConfig, parameters } = apiConfig.content;
     const imageConfig = responseConfig.image;
     const method = func.toUpperCase();
     let finalUrl = link;
@@ -264,8 +264,15 @@ export async function generateImages(apiConfig: ApiSource, payload: Record<strin
     const options: any = { method };
 
     if (method === 'GET' || method === 'HEAD') {
-        finalUrl = constructApiUrl(link, payload, apiConfig);
+        finalUrl = constructApiUrl(link, formState, apiConfig);
     } else {
+        // For POST requests, construct a name-keyed payload
+        const payload: Record<string, any> = {};
+        parameters.forEach((param: any, index: number) => {
+            if (param.name) {
+                payload[param.name] = formState[index];
+            }
+        });
         options.body = JSON.stringify(payload);
         options.headers = { 'Content-Type': 'application/json' };
     }

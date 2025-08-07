@@ -20,17 +20,16 @@ export default function GeneratorPage() {
       const api = await getApiByName(apiName);
       setApiSource(api);
 
-      // Initialize form state with default values from the API config
+      // Initialize form state with default values from the API config, using index as key
       if (api?.content?.parameters) {
-        const initialFormState: Record<string, any> = {};
-        for (const param of api.content.parameters) {
-          const key = param.name; // Keep the original name from the config
+        const initialFormState: Record<number, any> = {};
+        api.content.parameters.forEach((param: any, index: number) => {
           if ((param.type === 'enum' || param.type === 'list') && Array.isArray(param.value)) {
-            initialFormState[key] = param.value[0];
+            initialFormState[index] = param.value[0];
           } else {
-            initialFormState[key] = param.value;
+            initialFormState[index] = param.value;
           }
-        }
+        });
         setFormState(initialFormState);
       }
 
@@ -39,10 +38,10 @@ export default function GeneratorPage() {
     fetchApiDetails();
   }, [apiName]);
 
-  const handleFormChange = (name: string, value: any) => {
+  const handleFormChange = (index: number, value: any) => {
     setFormState(prevState => ({
       ...prevState,
-      [name]: value,
+      [index]: value,
     }));
   };
 
@@ -55,18 +54,18 @@ export default function GeneratorPage() {
     setIsGenerating(false);
   };
 
-  const renderParameter = (param: any) => {
+  const renderParameter = (param: any, index: number) => {
     console.log('Rendering parameter:', param);
     const { type, name, friendly_name, value, min_value, max_value, friendly_value } = param;
 
     switch (type) {
       case 'integer':
         return (
-          <Box key={name} sx={{ mb: 2 }}>
+          <Box key={index} sx={{ mb: 2 }}>
             <Typography gutterBottom>{friendly_name}</Typography>
             <Slider
-              value={formState[name] || value}
-              onChange={(_, newValue) => handleFormChange(name, newValue)}
+              value={formState[index] || value}
+              onChange={(_, newValue) => handleFormChange(index, newValue)}
               aria-labelledby="input-slider"
               valueLabelDisplay="auto"
               min={min_value}
@@ -77,11 +76,11 @@ export default function GeneratorPage() {
       case 'boolean':
         return (
           <FormControlLabel
-            key={name}
+            key={index}
             control={
               <Switch
-                checked={formState[name] || false}
-                onChange={(e) => handleFormChange(name, e.target.checked)}
+                checked={formState[index] || false}
+                onChange={(e) => handleFormChange(index, e.target.checked)}
                 name={name}
               />
             }
@@ -90,16 +89,21 @@ export default function GeneratorPage() {
           />
         );
       case 'enum':
+        // Add a defensive check to ensure value is a non-empty array
+        if (!Array.isArray(value) || value.length === 0) {
+          return null;
+        }
         return (
-          <FormControl fullWidth key={name} sx={{ mb: 2 }}>
+          <FormControl fullWidth key={index} sx={{ mb: 2 }}>
             <InputLabel>{friendly_name}</InputLabel>
             <Select
-              value={formState[name] || value[0]}
+              value={formState[index] || value[0]}
               label={friendly_name}
-              onChange={(e) => handleFormChange(name, e.target.value)}
+              onChange={(e) => handleFormChange(index, e.target.value)}
             >
-              {(friendly_value || value).map((option: string, index: number) => (
-                <MenuItem key={value[index]} value={value[index]}>
+              {(friendly_value || value).map((option: string, i: number) => (
+                // Use a more reliable key and ensure value exists
+                <MenuItem key={`${name}-${i}-${value[i]}`} value={value[i]}>
                   {option}
                 </MenuItem>
               ))}
@@ -109,22 +113,22 @@ export default function GeneratorPage() {
       case 'string':
         return (
           <TextField
-            key={name}
+            key={index}
             fullWidth
             label={friendly_name}
-            value={formState[name] || value}
-            onChange={(e) => handleFormChange(name, e.target.value)}
+            value={formState[index] || value}
+            onChange={(e) => handleFormChange(index, e.target.value)}
             sx={{ mb: 2 }}
           />
         );
       case 'list':
         return (
           <TextField
-            key={name}
+            key={index}
             fullWidth
             label={friendly_name}
-            value={formState[name] || value.join(param.split_str || '|')}
-            onChange={(e) => handleFormChange(name, e.target.value)}
+            value={formState[index] || value.join(param.split_str || '|')}
+            onChange={(e) => handleFormChange(index, e.target.value)}
             helperText={`用 "${param.split_str || '|'}" 分隔`}
             sx={{ mb: 2 }}
           />
@@ -155,7 +159,7 @@ export default function GeneratorPage() {
         {apiSource.content.intro}
       </Typography>
       <Box component="form" noValidate autoComplete="off" sx={{ mt: 3 }}>
-        {apiSource.content.parameters?.filter((p: any) => p.enable !== false).map(renderParameter)}
+        {apiSource.content.parameters?.filter((p: any) => p.enable !== false).map((p: any, i: number) => renderParameter(p, i))}
         <Button
           variant="contained"
           size="large"
