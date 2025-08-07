@@ -55,7 +55,8 @@ async function fetchJson<T>(url: string, pat?: string): Promise<T> {
 }
 
 export async function getApiCategories(): Promise<string[]> {
-  const useStatic = await getSetting<boolean>('use_static_index');
+  const useStaticSetting = await getSetting<boolean>('use_static_index');
+  const useStatic = useStaticSetting === null ? true : useStaticSetting;
 
   if (useStatic) {
     try {
@@ -87,7 +88,8 @@ addFormats(ajv);
 const validate = ajv.compile(APICORE_SCHEMA);
 
 export async function getApisByCategory(category: string): Promise<ApiSource[]> {
-  const useStatic = await getSetting<boolean>('use_static_index');
+  const useStaticSetting = await getSetting<boolean>('use_static_index');
+  const useStatic = useStaticSetting === null ? true : useStaticSetting;
 
   if (useStatic) {
     try {
