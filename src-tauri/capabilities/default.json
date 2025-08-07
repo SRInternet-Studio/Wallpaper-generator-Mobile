@@ -25,7 +25,8 @@
       "identifier": "fs:scope",
       "allow": [
         { "path": "$DOWNLOAD/**" },
-        { "path": "$PICTURE/**" }
+        { "path": "$PICTURE/**" },
+        { "path": "$TEMP/**" }
       ]
     },
     "sharesheet:default",
