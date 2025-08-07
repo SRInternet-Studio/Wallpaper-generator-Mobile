@@ -8,7 +8,7 @@ import { clearApiCache } from '../services/market';
 
 export default function SettingsPage() {
   const [downloadPath, setDownloadPath] = useState('');
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '' });
   const [githubPat, setGithubPat] = useState('');
   const [useStaticIndex, setUseStaticIndex] = useState(true);
   const [githubApiUrl, setGithubApiUrl] = useState('');
@@ -44,13 +44,13 @@ export default function SettingsPage() {
     await setSetting('github_api_url', githubApiUrl);
     await setSetting('static_api_url', staticApiUrl);
     clearApiCache();
-    alert('设置已保存！');
+    setSnackbar({ open: true, message: '设置已保存！' });
   };
 
   const handleCopyPath = async () => {
     if (downloadPath) {
       await writeText(downloadPath);
-      setSnackbarOpen(true);
+      setSnackbar({ open: true, message: '路径已复制到剪贴板' });
     }
   };
 
@@ -78,10 +78,10 @@ export default function SettingsPage() {
         </Paper>
       </Box>
       <Snackbar
-        open={snackbarOpen}
+        open={snackbar.open}
         autoHideDuration={2000}
-        onClose={() => setSnackbarOpen(false)}
-        message="路径已复制到剪贴板"
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        message={snackbar.message}
       />
       <Box sx={{ mt: 3 }}>
         <Typography variant="h6" gutterBottom>
