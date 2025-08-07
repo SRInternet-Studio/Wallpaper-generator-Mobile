@@ -1,5 +1,4 @@
 export const APICORE_SCHEMA = {
-  "$schema": "https://json-schema.org/draft-07/schema#",
   "title": "APICORE Configuration Schema",
   "description": "Schema for APICORE API configuration files",
   "type": "object",

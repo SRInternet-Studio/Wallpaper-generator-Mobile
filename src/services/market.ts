@@ -2,6 +2,7 @@ import { fetch } from '@tauri-apps/plugin-http';
 import { getSetting } from './settings';
 import { writeFile, mkdir, exists } from '@tauri-apps/plugin-fs';
 import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
 import { APICORE_SCHEMA } from './schema';
 import { sendNotification } from '@tauri-apps/plugin-notification';
 import { downloadDir, join, tempDir } from '@tauri-apps/api/path';
@@ -50,7 +51,8 @@ export async function getApiCategories(): Promise<string[]> {
   }
 }
 
-const ajv = new Ajv();
+const ajv = new Ajv({ allErrors: true });
+addFormats(ajv);
 const validate = ajv.compile(APICORE_SCHEMA);
 
 export async function getApisByCategory(category: string): Promise<ApiSource[]> {
