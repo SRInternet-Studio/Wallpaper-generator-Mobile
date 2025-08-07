@@ -1,6 +1,8 @@
 import { fetch } from '@tauri-apps/plugin-http';
 import { getSetting } from './settings';
 import { writeFile, mkdir, exists } from '@tauri-apps/plugin-fs';
+import Ajv from 'ajv';
+import { APICORE_SCHEMA } from './schema';
 import { sendNotification } from '@tauri-apps/plugin-notification';
 import { downloadDir, join, tempDir } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
@@ -48,6 +50,9 @@ export async function getApiCategories(): Promise<string[]> {
   }
 }
 
+const ajv = new Ajv();
+const validate = ajv.compile(APICORE_SCHEMA);
+
 export async function getApisByCategory(category: string): Promise<ApiSource[]> {
   try {
     const pat = await getSetting<string>('github_pat');
@@ -59,7 +64,14 @@ export async function getApisByCategory(category: string): Promise<ApiSource[]> 
         try {
           const apiName = file.name.replace('.api.json', '');
           const content = await fetchJson<any>(file.download_url, pat || undefined);
-          return { name: apiName, content, category };
+          
+          // Validate the content against the schema
+          if (validate(content)) {
+            return { name: apiName, content, category };
+          } else {
+            console.error(`Invalid API config for ${file.name}:`, validate.errors);
+            return null;
+          }
         } catch (e) {
           console.error(`Error processing file ${file.name}:`, e);
           return null;
@@ -110,18 +122,19 @@ function constructApiUrl(api: string, payload: Record<string, any>, apiConfig: A
         const key = param.name;
         const value = payload[key];
 
-        if (key === null || key === '') { // Path parameter
-            if (value !== undefined && value !== null) {
-                pathParams.push(String(value));
-            }
+        if (value === undefined || value === null) {
+            continue;
+        }
+
+        // Path parameter if name is null, undefined, or an empty string
+        if (key === null || typeof key === 'undefined' || key === '') {
+            pathParams.push(String(value));
         } else { // Query parameter
-            if (value !== undefined && value !== null) {
-                const split_str = param.split_str || '|';
-                if (Array.isArray(value)) {
-                    queryParams[key] = value.join(split_str);
-                } else {
-                    queryParams[key] = String(value);
-                }
+            const split_str = param.split_str || '|';
+            if (Array.isArray(value)) {
+                queryParams[key] = value.join(split_str);
+            } else {
+                queryParams[key] = String(value);
             }
         }
     }
@@ -138,15 +151,115 @@ function constructApiUrl(api: string, payload: Record<string, any>, apiConfig: A
     return url;
 }
 
+function parseResponse(data: any, path: string): any {
+    const indexPattern = /\[(.*?)\]/g;
+
+    function resolvePath(obj: any, parts: string[]): any {
+        if (parts.length === 0 || obj === null || typeof obj === 'undefined') {
+            return obj;
+        }
+
+        const currentPart = parts[0];
+        const remainingParts = parts.slice(1);
+        const matches = [...currentPart.matchAll(indexPattern)];
+
+        if (matches.length > 0) {
+            const field = currentPart.substring(0, matches[0].index).trim();
+            let targetObj = obj;
+
+            if (field) {
+                if (typeof targetObj === 'object' && targetObj !== null && field in targetObj) {
+                    targetObj = targetObj[field];
+                } else {
+                    return null;
+                }
+            }
+
+            for (const match of matches) {
+                if (targetObj === null || typeof targetObj === 'undefined') return null;
+                const indexExpr = match[1];
+
+                if (indexExpr === '*') {
+                    if (!Array.isArray(targetObj)) return null;
+                    // If there are more parts, recurse, otherwise return the items
+                    return targetObj.map(item => resolvePath(item, remainingParts));
+                } else if (indexExpr.includes(':')) {
+                    if (!Array.isArray(targetObj)) return null;
+                    let [startStr, endStr, stepStr] = indexExpr.split(':');
+                    let start = startStr ? parseInt(startStr, 10) : 0;
+                    let end = endStr ? parseInt(endStr, 10) : targetObj.length;
+                    let step = stepStr ? parseInt(stepStr, 10) : 1;
+
+                    if (start < 0) start += targetObj.length;
+                    if (end < 0) end += targetObj.length;
+
+                    const sliced = [];
+                    for (let i = start; i < end; i += step) {
+                        if (targetObj[i] !== undefined) {
+                            sliced.push(targetObj[i]);
+                        }
+                    }
+                    targetObj = sliced;
+                } else {
+                    try {
+                        let idx = parseInt(indexExpr, 10);
+                        if (!Array.isArray(targetObj)) return null;
+                        if (idx < 0) idx += targetObj.length;
+
+                        if (idx >= 0 && idx < targetObj.length) {
+                            targetObj = targetObj[idx];
+                        } else {
+                            return null;
+                        }
+                    } catch {
+                        return null;
+                    }
+                }
+            }
+            return resolvePath(targetObj, remainingParts);
+        }
+
+        if (currentPart.includes('.')) {
+            const subParts = currentPart.split('.').concat(remainingParts);
+            return resolvePath(obj, subParts);
+        }
+
+        if (typeof obj === 'object' && obj !== null && currentPart in obj) {
+            return resolvePath(obj[currentPart], remainingParts);
+        }
+
+        if (Array.isArray(obj) && /^\d+$/.test(currentPart)) {
+            try {
+                const idx = parseInt(currentPart, 10);
+                if (idx >= 0 && idx < obj.length) {
+                    return resolvePath(obj[idx], remainingParts);
+                }
+            } catch {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    const pathParts = path.split('.').filter(p => p.trim());
+    const result = resolvePath(data, pathParts);
+    
+    // Flatten the result if it's an array of arrays from wildcards
+    return Array.isArray(result) ? result.flat(Infinity) : result;
+}
+
+
 export async function generateImages(apiConfig: ApiSource, payload: Record<string, any>): Promise<string[]> {
     console.log("Generating images with config:", apiConfig);
     console.log("Payload:", payload);
 
     const { link, func, response: responseConfig } = apiConfig.content;
+    const imageConfig = responseConfig.image;
     const method = func.toUpperCase();
     let finalUrl = link;
 
-    const options: RequestInit = { method };
+    const options: any = { method };
 
     if (method === 'GET' || method === 'HEAD') {
         finalUrl = constructApiUrl(link, payload, apiConfig);
@@ -166,33 +279,52 @@ export async function generateImages(apiConfig: ApiSource, payload: Record<strin
             throw new Error(`API request failed: ${response.status}`);
         }
 
-        const textData = await response.text();
-        console.log("Received response data:", textData);
         let imageUrls: any[] = [];
+        const responseData = new Uint8Array(await response.arrayBuffer());
 
-        try {
-            // Try to parse as JSON first
-            const data = JSON.parse(textData);
-            const path = responseConfig.image?.path || '';
-            
-            let extractedUrls = path.split('.').reduce((acc: any, part: string) => {
-                if (acc === null || typeof acc === 'undefined') return null;
-                if (part === '[*]') {
-                    return Array.isArray(acc) ? acc.flatMap((item: any) => item) : null;
+        switch (imageConfig.content_type) {
+            case 'BINARY':
+                const blob = new Blob([responseData]);
+                imageUrls = [URL.createObjectURL(blob)];
+                break;
+
+            case 'BASE64':
+            case 'URL':
+            default:
+                // For URL and BASE64, we need the text content
+                const textData = new TextDecoder().decode(responseData);
+                console.log("Received response data:", textData);
+
+                if (imageConfig.content_type === 'BASE64') {
+                    const path = imageConfig.path || '';
+                    const base64Data = path ? parseResponse(JSON.parse(textData), path) : textData;
+                    if (Array.isArray(base64Data)) {
+                        imageUrls = base64Data.map(b64 => `data:image/png;base64,${b64}`);
+                    } else {
+                        imageUrls = [`data:image/png;base64,${base64Data}`];
+                    }
+                    break;
                 }
-                return Array.isArray(acc) ? acc.map((item: any) => item?.[part]) : acc?.[part];
-            }, data);
 
-            if (extractedUrls) {
-                imageUrls = Array.isArray(extractedUrls) ? extractedUrls : [extractedUrls];
-            }
-
-        } catch (e) {
-            // If JSON parsing fails, treat the response as a list of URLs separated by newlines
-            imageUrls = textData.split('\n').filter(url => url.trim().startsWith('http'));
+                // Default to URL content type
+                try {
+                    const data = JSON.parse(textData);
+                    const path = imageConfig.path || '';
+                    if (path) {
+                        const extractedUrls = parseResponse(data, path);
+                        if (extractedUrls) {
+                            imageUrls = Array.isArray(extractedUrls) ? extractedUrls : [extractedUrls];
+                        }
+                    } else {
+                        imageUrls = Array.isArray(data) ? data : [data];
+                    }
+                } catch (e) {
+                    imageUrls = textData.split('\n').filter(url => url.trim().startsWith('http'));
+                }
+                break;
         }
 
-        return imageUrls.filter(Boolean);
+        return imageUrls.filter(Boolean).map(String);
 
     } catch (error) {
         console.error('Failed to generate images:', error);

@@ -155,7 +155,7 @@ export default function GeneratorPage() {
         {apiSource.content.intro}
       </Typography>
       <Box component="form" noValidate autoComplete="off" sx={{ mt: 3 }}>
-        {apiSource.content.parameters?.map(renderParameter)}
+        {apiSource.content.parameters?.filter((p: any) => p.enable !== false).map(renderParameter)}
         <Button
           variant="contained"
           size="large"
