@@ -6,6 +6,7 @@ import { downloadDir } from '@tauri-apps/api/path';
 
 export default function SettingsPage() {
   const [downloadPath, setDownloadPath] = useState('');
+  const [githubPat, setGithubPat] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,6 +16,10 @@ export default function SettingsPage() {
         path = await downloadDir();
       }
       setDownloadPath(path);
+
+      const pat = await getSetting<string>('github_pat');
+      setGithubPat(pat || '');
+      
       setLoading(false);
     }
     loadSettings();
@@ -34,6 +39,7 @@ export default function SettingsPage() {
 
   const handleSaveSettings = async () => {
     await setSetting('download_path', downloadPath);
+    await setSetting('github_pat', githubPat);
     alert('设置已保存！');
   };
 
@@ -63,14 +69,34 @@ export default function SettingsPage() {
             选择文件夹
           </Button>
         </Box>
-        <Button
-          variant="contained"
-          sx={{ mt: 3 }}
-          onClick={handleSaveSettings}
-        >
-          保存设置
-        </Button>
       </Box>
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          GitHub 个人访问令牌 (PAT)
+        </Typography>
+        <TextField
+          fullWidth
+          variant="outlined"
+          value={githubPat}
+          onChange={(e) => setGithubPat(e.target.value)}
+          placeholder="ghp_..."
+          helperText={
+            <span>
+              用于提高 API 请求速率限制。
+              <a href="https://github.com/SRInternet-Studio/Wallpaper-generator-Mobile/blob/main/PAT_GUIDE.md" target="_blank" rel="noopener noreferrer" style={{ color: '#90caf9', textDecoration: 'underline' }}>
+                查看如何创建个人访问令牌 (PAT)
+              </a>
+            </span>
+          }
+        />
+      </Box>
+      <Button
+        variant="contained"
+        sx={{ mt: 3 }}
+        onClick={handleSaveSettings}
+      >
+        保存设置
+      </Button>
     </Paper>
   );
 }

@@ -5,7 +5,7 @@ import { sendNotification } from '@tauri-apps/plugin-notification';
 import { downloadDir, join, tempDir } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
 
-const REPO_URL = 'https://raw.githubusercontent.com/IntelliMarkets/Wallpaper_API_Index/main/';
+const GITHUB_API_URL = 'https://api.github.com/repos/IntelliMarkets/Wallpaper_API_Index/contents/';
 
 export interface ApiSource {
   name: string;
@@ -13,8 +13,18 @@ export interface ApiSource {
   category: string;
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-    const response = await fetch(url, { method: 'GET' });
+async function fetchJson<T>(url: string, pat?: string): Promise<T> {
+    const headers: Record<string, string> = {
+        'Accept': 'application/vnd.github.v3+json'
+    };
+    if (pat) {
+        headers['Authorization'] = `token ${pat}`;
+    }
+
+    const response = await fetch(url, { 
+        method: 'GET',
+        headers
+    });
     if (!response.ok) {
         throw new Error(`Request failed: ${response.status}`);
     }
@@ -23,8 +33,9 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 export async function getApiCategories(): Promise<string[]> {
   try {
-    const data = await fetchJson<{ classification: string[] }>(`${REPO_URL}index.json`);
-    return data.classification || [];
+    const pat = await getSetting<string>('github_pat');
+    const data = await fetchJson<any[]>(GITHUB_API_URL, pat || undefined);
+    return data.filter(item => item.type === 'dir').map(item => item.name);
   } catch (error) {
     console.error('Error fetching API categories:', error);
     return [];
@@ -33,19 +44,21 @@ export async function getApiCategories(): Promise<string[]> {
 
 export async function getApisByCategory(category: string): Promise<ApiSource[]> {
   try {
-    const indexData = await fetchJson<{ files: Record<string, string[]> }>(`${REPO_URL}index.json`);
-    const files = indexData.files[category] || [];
-
-    const apiPromises = files.map(async (file: string) => {
-      try {
-        const apiName = file.replace('.api.json', '');
-        const content = await fetchJson<any>(`${REPO_URL}${category}/${file}`);
-        return { name: apiName, content, category };
-      } catch (e) {
-        console.error(`Error processing file ${file}:`, e);
-        return null;
-      }
-    });
+    const pat = await getSetting<string>('github_pat');
+    const files = await fetchJson<any[]>(`${GITHUB_API_URL}${category}`, pat || undefined);
+    
+    const apiPromises = files
+      .filter(file => file.name.endsWith('.api.json'))
+      .map(async (file: any) => {
+        try {
+          const apiName = file.name.replace('.api.json', '');
+          const content = await fetchJson<any>(file.download_url, pat || undefined);
+          return { name: apiName, content, category };
+        } catch (e) {
+          console.error(`Error processing file ${file.name}:`, e);
+          return null;
+        }
+      });
 
     const results = await Promise.all(apiPromises);
     return results.filter((item): item is ApiSource => item !== null);
