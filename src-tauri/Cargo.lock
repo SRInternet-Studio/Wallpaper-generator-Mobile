@@ -4527,6 +4527,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-sharesheet"
+version = "0.0.1"
+source = "git+https://github.com/MnlPhlp/tauri-plugin-sharesheet#1d9e3589b5fb9fed2752cab387451a33ac9ea971"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "tauri-plugin-store"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5254,6 +5268,7 @@ dependencies = [
  "tauri-plugin-log",
  "tauri-plugin-notification",
  "tauri-plugin-opener",
+ "tauri-plugin-sharesheet",
  "tauri-plugin-store",
 ]
 

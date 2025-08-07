@@ -24,11 +24,13 @@
     {
       "identifier": "fs:scope",
       "allow": [
+        { "path": "$APPDATA/**" },
         { "path": "$DOWNLOAD/**" },
         { "path": "$PICTURE/**" },
         { "path": "$TEMP/**" }
       ]
     },
+    "sharesheet:default",
     "fs:allow-write-file",
     "fs:allow-exists",
     "fs:allow-mkdir"

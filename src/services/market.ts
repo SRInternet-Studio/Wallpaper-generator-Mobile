@@ -6,6 +6,7 @@ import addFormats from 'ajv-formats';
 import { APICORE_SCHEMA } from './schema';
 import { sendNotification } from '@tauri-apps/plugin-notification';
 import { downloadDir, join, tempDir } from '@tauri-apps/api/path';
+import { invoke } from '@tauri-apps/api/core';
 
 function parseDirectoryListing(html: string): { name: string, type: 'dir' | 'file' }[] {
     const items = [];
@@ -459,6 +460,29 @@ async function downloadImageToTemp(imageUrl: string): Promise<string | null> {
     }
 }
 
+export async function shareImage(imageUrl: string): Promise<void> {
+    const tempFilePath = await downloadImageToTemp(imageUrl);
+    if (tempFilePath) {
+        try {
+            const mimeType = imageUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
+            const title = tempFilePath.split('/').pop() || 'image';
+            
+            await invoke("plugin:sharesheet|share_file", {
+              file: tempFilePath,
+              options: {
+                mimeType,
+                title,
+              },
+            });
+        } catch (error) {
+            console.error('Failed to share image:', error);
+            await sendNotification({
+                title: '分享失败',
+                body: `无法分享图片: ${String(error)}`
+            });
+        }
+    }
+}
 
 export async function downloadImage(imageUrl: string): Promise<void> {
     try {
