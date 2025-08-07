@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tauri-app",
+  "productName": "Wallpaper Generator",
   "version": "0.1.0",
-  "identifier": "com.tauri-app.app",
+  "identifier": "com.srinternet.wallpapergenerator",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "tauri-app",
+        "title": "Wallpaper Generator",
         "width": 800,
         "height": 600
       }
