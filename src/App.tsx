@@ -1,21 +1,20 @@
-import { Button, Container, CssBaseline, Typography } from '@mui/material';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
+import HomePage from './pages/HomePage';
+import MarketPage from './pages/MarketPage';
+import SettingsPage from './pages/SettingsPage';
 
 function App() {
   return (
-    <>
-      <CssBaseline />
-      <Container>
-        <Typography variant="h1" component="h1" gutterBottom>
-          Welcome to Tauri + MUI
-        </Typography>
-        <Typography variant="body1" gutterBottom>
-          This is a sample application demonstrating the integration of Tauri with Material-UI.
-        </Typography>
-        <Button variant="contained" color="primary">
-          Hello World
-        </Button>
-      </Container>
-    </>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<HomePage />} />
+          <Route path="market" element={<MarketPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
 
