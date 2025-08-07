@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Typography, Button, Paper, Box, TextField, CircularProgress } from '@mui/material';
+import { Typography, Button, Paper, Box, TextField, CircularProgress, Switch, FormControlLabel } from '@mui/material';
 import { getSetting, setSetting } from '../services/settings';
 import { open } from '@tauri-apps/plugin-dialog';
 import { downloadDir } from '@tauri-apps/api/path';
+import { clearApiCache } from '../services/market';
 
 export default function SettingsPage() {
   const [downloadPath, setDownloadPath] = useState('');
   const [githubPat, setGithubPat] = useState('');
+  const [useStaticIndex, setUseStaticIndex] = useState(false);
+  const [githubApiUrl, setGithubApiUrl] = useState('');
+  const [staticApiUrl, setStaticApiUrl] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,6 +23,15 @@ export default function SettingsPage() {
 
       const pat = await getSetting<string>('github_pat');
       setGithubPat(pat || '');
+
+      const staticIndex = await getSetting<boolean>('use_static_index');
+      setUseStaticIndex(staticIndex || false);
+
+      const githubUrl = await getSetting<string>('github_api_url');
+      setGithubApiUrl(githubUrl || 'https://api.github.com/repos/IntelliMarkets/Wallpaper_API_Index/contents/');
+
+      const staticUrl = await getSetting<string>('static_api_url');
+      setStaticApiUrl(staticUrl || 'https://acgapi.sr-studio.cn/');
       
       setLoading(false);
     }
@@ -40,6 +53,10 @@ export default function SettingsPage() {
   const handleSaveSettings = async () => {
     await setSetting('download_path', downloadPath);
     await setSetting('github_pat', githubPat);
+    await setSetting('use_static_index', useStaticIndex);
+    await setSetting('github_api_url', githubApiUrl);
+    await setSetting('static_api_url', staticApiUrl);
+    clearApiCache();
     alert('设置已保存！');
   };
 
@@ -88,6 +105,45 @@ export default function SettingsPage() {
               </a>
             </span>
           }
+        />
+      </Box>
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          商店加载设置
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={useStaticIndex}
+              onChange={(e) => setUseStaticIndex(e.target.checked)}
+            />
+          }
+          label="使用静态索引加载商店"
+        />
+        <Typography variant="body2" color="text.secondary">
+          从静态索引地址加载商店内容，可以提高加载速度并减少对 GitHub API 的依赖。
+        </Typography>
+      </Box>
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          高级设置
+        </Typography>
+        <TextField
+          fullWidth
+          variant="outlined"
+          label="GitHub API 地址"
+          value={githubApiUrl}
+          onChange={(e) => setGithubApiUrl(e.target.value)}
+          sx={{ mb: 2 }}
+          helperText="用于从 GitHub 加载商店内容的 API 地址。"
+        />
+        <TextField
+          fullWidth
+          variant="outlined"
+          label="静态索引地址"
+          value={staticApiUrl}
+          onChange={(e) => setStaticApiUrl(e.target.value)}
+          helperText="用于从静态网站加载商店内容的地址。"
         />
       </Box>
       <Button

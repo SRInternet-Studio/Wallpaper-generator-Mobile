@@ -8,7 +8,21 @@ import { sendNotification } from '@tauri-apps/plugin-notification';
 import { downloadDir, join, tempDir } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
 
-const GITHUB_API_URL = 'https://cfworkerproxy.moonpeaches.xyz/https://api.github.com/repos/IntelliMarkets/Wallpaper_API_Index/contents/';
+function parseDirectoryListing(html: string): { name: string, type: 'dir' | 'file' }[] {
+    const items = [];
+    const regex = /<a href=.*? class="([^"]+)".*?>(.+?)<\/a>/g;
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+        const classList = match[1];
+        const name = match[2];
+        if (classList.includes('folder')) {
+            items.push({ name, type: 'dir' as const });
+        } else if (classList.includes('file')) {
+            items.push({ name, type: 'file' as const });
+        }
+    }
+    return items;
+}
 
 export interface ApiSource {
   name: string;
@@ -41,9 +55,26 @@ async function fetchJson<T>(url: string, pat?: string): Promise<T> {
 }
 
 export async function getApiCategories(): Promise<string[]> {
+  const useStatic = await getSetting<boolean>('use_static_index');
+
+  if (useStatic) {
+    try {
+      const staticApiUrl = await getSetting<string>('static_api_url') || 'https://acgapi.sr-studio.cn/';
+      const response = await fetch(staticApiUrl);
+      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      const html = await response.text();
+      const items = parseDirectoryListing(html);
+      return items.filter(item => item.type === 'dir' && !item.name.startsWith('.')).map(item => item.name);
+    } catch (error) {
+      console.error('Error fetching API categories from static index:', error);
+      return [];
+    }
+  }
+
   try {
     const pat = await getSetting<string>('github_pat');
-    const data = await fetchJson<any[]>(GITHUB_API_URL, pat || undefined);
+    const githubApiUrl = await getSetting<string>('github_api_url') || 'https://api.github.com/repos/IntelliMarkets/Wallpaper_API_Index/contents/';
+    const data = await fetchJson<any[]>(githubApiUrl, pat || undefined);
     return data.filter(item => item.type === 'dir').map(item => item.name);
   } catch (error) {
     console.error('Error fetching API categories:', error);
@@ -56,9 +87,52 @@ addFormats(ajv);
 const validate = ajv.compile(APICORE_SCHEMA);
 
 export async function getApisByCategory(category: string): Promise<ApiSource[]> {
+  const useStatic = await getSetting<boolean>('use_static_index');
+
+  if (useStatic) {
+    try {
+      const staticApiUrl = await getSetting<string>('static_api_url') || 'https://acgapi.sr-studio.cn/';
+      const categoryUrl = `${staticApiUrl}${encodeURIComponent(category)}/`;
+      const response = await fetch(categoryUrl);
+      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      const html = await response.text();
+      const items = parseDirectoryListing(html);
+
+      const apiPromises = items
+        .filter(item => item.type === 'file' && item.name.endsWith('.api.json'))
+        .map(async (item: any) => {
+          try {
+            const apiName = item.name.replace('.api.json', '');
+            const fileUrl = `${categoryUrl}${encodeURIComponent(item.name)}`;
+            const contentResponse = await fetch(fileUrl);
+            if (!contentResponse.ok) throw new Error(`Failed to fetch ${fileUrl}`);
+            const content = await contentResponse.json();
+            
+            if (validate(content)) {
+              return { name: apiName, content, category };
+            } else {
+              console.error(`Invalid API config for ${item.name}:`, validate.errors);
+              return null;
+            }
+          } catch (e) {
+            console.error(`Error processing file ${item.name}:`, e);
+            return null;
+          }
+        });
+      
+      const results = await Promise.all(apiPromises);
+      return results.filter((item): item is ApiSource => item !== null);
+
+    } catch (error) {
+      console.error(`Error fetching APIs for category ${category} from static index:`, error);
+      return [];
+    }
+  }
+
   try {
     const pat = await getSetting<string>('github_pat');
-    const files = await fetchJson<any[]>(`${GITHUB_API_URL}${category}`, pat || undefined);
+    const githubApiUrl = await getSetting<string>('github_api_url') || 'https://api.github.com/repos/IntelliMarkets/Wallpaper_API_Index/contents/';
+    const files = await fetchJson<any[]>(`${githubApiUrl}${category}`, pat || undefined);
     
     const apiPromises = files
       .filter(file => file.name.endsWith('.api.json'))
