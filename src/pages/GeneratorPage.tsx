@@ -23,7 +23,8 @@ export default function GeneratorPage() {
   const isLg = useMediaQuery(theme.breakpoints.up('lg'));
   const isXl = useMediaQuery(theme.breakpoints.up('xl'));
 
-  const cols = isXl ? 5 : isLg ? 4 : isMd ? 3 : isSm ? 2 : 1;
+  const maxCols = isXl ? 5 : isLg ? 4 : isMd ? 3 : isSm ? 2 : 1;
+  const cols = generatedImages.length > 0 ? Math.min(maxCols, generatedImages.length) : maxCols;
 
   useEffect(() => {
     async function fetchApiDetails() {
