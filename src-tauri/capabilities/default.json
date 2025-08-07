@@ -29,6 +29,8 @@
         { "path": "$TEMP/**" }
       ]
     },
-    "fs:allow-write-file"
+    "fs:allow-write-file",
+    "fs:allow-exists",
+    "fs:allow-mkdir"
   ]
 }
