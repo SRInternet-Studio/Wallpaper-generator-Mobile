@@ -8,7 +8,7 @@ import { sendNotification } from '@tauri-apps/plugin-notification';
 import { downloadDir, join, tempDir } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
 
-const GITHUB_API_URL = 'https://api.github.com/repos/IntelliMarkets/Wallpaper_API_Index/contents/';
+const GITHUB_API_URL = 'https://cfworkerproxy.moonpeaches.xyz/https://api.github.com/repos/IntelliMarkets/Wallpaper_API_Index/contents/';
 
 export interface ApiSource {
   name: string;
