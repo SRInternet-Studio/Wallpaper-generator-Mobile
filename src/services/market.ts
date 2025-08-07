@@ -100,22 +100,48 @@ export async function getApiByName(apiName: string): Promise<ApiSource | null> {
     }
 }
 
-function constructApiUrl(url: string, payload: Record<string, any>, apiConfig: ApiSource): string {
-    const params = new URLSearchParams();
-    for (const key in payload) {
-        const paramConfig = apiConfig.content.parameters.find((p: any) => p.name === key);
-        if (paramConfig && paramConfig.type === 'list' && Array.isArray(payload[key])) {
-            const separator = paramConfig.split_str || '|';
-            params.append(key, payload[key].join(separator));
-        } else {
-            params.append(key, String(payload[key]));
+function constructApiUrl(api: string, payload: Record<string, any>, apiConfig: ApiSource): string {
+    let url = api.replace(/\/$/, '').replace(/\?$/, '');
+    const pathParams: string[] = [];
+    const queryParams: Record<string, string> = {};
+
+    // This logic mirrors the Python construct_api function
+    for (const param of apiConfig.content.parameters) {
+        const key = param.name;
+        const value = payload[key];
+
+        if (key === null || key === '') { // Path parameter
+            if (value !== undefined && value !== null) {
+                pathParams.push(String(value));
+            }
+        } else { // Query parameter
+            if (value !== undefined && value !== null) {
+                const split_str = param.split_str || '|';
+                if (Array.isArray(value)) {
+                    queryParams[key] = value.join(split_str);
+                } else {
+                    queryParams[key] = String(value);
+                }
+            }
         }
     }
-    const queryString = params.toString();
-    return queryString ? `${url}?${queryString}` : url;
+
+    if (pathParams.length > 0) {
+        url += '/' + pathParams.join('/');
+    }
+
+    if (Object.keys(queryParams).length > 0) {
+        const queryString = new URLSearchParams(queryParams).toString();
+        url += '?' + queryString;
+    }
+
+    return url;
 }
 
 export async function generateImages(apiConfig: ApiSource, payload: Record<string, any>): Promise<string[]> {
+    console.log("Generating images with config:", apiConfig);
+    console.log("Payload:", payload);
+
     const { link, func, response: responseConfig } = apiConfig.content;
     const method = func.toUpperCase();
     let finalUrl = link;
@@ -130,12 +156,18 @@ export async function generateImages(apiConfig: ApiSource, payload: Record<strin
     }
 
     try {
+        console.log(`Making ${method} request to: ${finalUrl}`);
+        if (options.body) {
+            console.log("Request body:", options.body);
+        }
+
         const response = await fetch(finalUrl, options);
         if (!response.ok) {
             throw new Error(`API request failed: ${response.status}`);
         }
 
         const textData = await response.text();
+        console.log("Received response data:", textData);
         let imageUrls: any[] = [];
 
         try {

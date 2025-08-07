@@ -24,7 +24,12 @@ export default function GeneratorPage() {
       if (api?.content?.parameters) {
         const initialFormState: Record<string, any> = {};
         for (const param of api.content.parameters) {
-          initialFormState[param.name] = param.value;
+          const key = param.name; // Keep the original name from the config
+          if ((param.type === 'enum' || param.type === 'list') && Array.isArray(param.value)) {
+            initialFormState[key] = param.value[0];
+          } else {
+            initialFormState[key] = param.value;
+          }
         }
         setFormState(initialFormState);
       }
@@ -51,6 +56,7 @@ export default function GeneratorPage() {
   };
 
   const renderParameter = (param: any) => {
+    console.log('Rendering parameter:', param);
     const { type, name, friendly_name, value, min_value, max_value, friendly_value } = param;
 
     switch (type) {
@@ -101,15 +107,25 @@ export default function GeneratorPage() {
           </FormControl>
         );
       case 'string':
+        return (
+          <TextField
+            key={name}
+            fullWidth
+            label={friendly_name}
+            value={formState[name] || value}
+            onChange={(e) => handleFormChange(name, e.target.value)}
+            sx={{ mb: 2 }}
+          />
+        );
       case 'list':
         return (
           <TextField
             key={name}
             fullWidth
             label={friendly_name}
-            value={formState[name] || (type === 'list' ? value.join(param.split_str || '|') : value)}
+            value={formState[name] || value.join(param.split_str || '|')}
             onChange={(e) => handleFormChange(name, e.target.value)}
-            helperText={type === 'list' ? `用 "${param.split_str || '|'}" 分隔` : ''}
+            helperText={`用 "${param.split_str || '|'}" 分隔`}
             sx={{ mb: 2 }}
           />
         );
