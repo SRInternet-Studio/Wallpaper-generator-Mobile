@@ -403,19 +403,17 @@ export async function generateImages(
                     urls = textData.split('\n').filter(url => url.trim().startsWith('http'));
                 }
 
-                const downloadPromises = urls.filter(Boolean).map(async (url) => {
+                for (const url of urls.filter(Boolean)) {
                     try {
                         const imgResponse = await fetch(url);
-                        if (!imgResponse.ok) return;
+                        if (!imgResponse.ok) continue;
                         const imgBuffer = await imgResponse.arrayBuffer();
                         const imgMimeType = imgResponse.headers.get('Content-Type') || 'image/jpeg';
                         onImageReady(bufferToBase64(imgBuffer, imgMimeType));
                     } catch (e) {
                         console.error(`Failed to download image from URL ${url}:`, e);
                     }
-                });
-                
-                await Promise.all(downloadPromises);
+                }
                 break;
             }
         }
