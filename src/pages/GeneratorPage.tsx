@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, useMediaQuery, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, Snackbar } from '@mui/material';
+import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, useMediaQuery, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -19,9 +19,6 @@ export default function GeneratorPage() {
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [actionMenuImage, setActionMenuImage] = useState<string | null>(null);
-  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
-  const [fileName, setFileName] = useState('');
-  const [snackbar, setSnackbar] = useState({ open: false, message: '' });
 
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
@@ -71,9 +68,8 @@ export default function GeneratorPage() {
     if (!apiSource) return;
     setIsGenerating(true);
     setGeneratedImages([]);
-    await generateImages(apiSource, formState, (newImage) => {
-      setGeneratedImages(prevImages => [...prevImages, newImage]);
-    });
+    const imageUrls = await generateImages(apiSource, formState);
+    setGeneratedImages(imageUrls);
     setIsGenerating(false);
   };
 
@@ -103,27 +99,15 @@ export default function GeneratorPage() {
   const handleCopyLinkAction = () => {
     if (actionMenuImage && actionMenuImage.startsWith('http')) {
       writeText(actionMenuImage);
-      setSnackbar({ open: true, message: '链接已复制' });
     }
     handleActionMenuClose();
   };
 
   const handleDownloadAction = () => {
     if (actionMenuImage) {
-      const mimeType = actionMenuImage.match(/:(.*?);/)?.[1] || 'image/jpeg';
-      const extension = mimeType.split('/')[1] || 'jpg';
-      setFileName(`wallpaper.${extension}`);
-      setDownloadDialogOpen(true);
+      downloadImage(actionMenuImage);
     }
     handleActionMenuClose();
-  };
-
-  const handleConfirmDownload = () => {
-    if (actionMenuImage && fileName) {
-      downloadImage(actionMenuImage, fileName);
-    }
-    setDownloadDialogOpen(false);
-    setFileName('');
   };
 
   const handleTouchStart = (img: string) => {
@@ -351,37 +335,6 @@ export default function GeneratorPage() {
           </List>
         </Box>
       </Drawer>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={2000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        message={snackbar.message}
-      />
-
-      <Dialog open={downloadDialogOpen} onClose={() => setDownloadDialogOpen(false)}>
-        <DialogTitle>保存图片</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            请输入要保存的文件名：
-          </DialogContentText>
-          <TextField
-            autoFocus
-            margin="dense"
-            id="name"
-            label="文件名"
-            type="text"
-            fullWidth
-            variant="standard"
-            value={fileName}
-            onChange={(e) => setFileName(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDownloadDialogOpen(false)}>取消</Button>
-          <Button onClick={handleConfirmDownload}>保存</Button>
-        </DialogActions>
-      </Dialog>
 
       {selectedImage && (
         <Box
