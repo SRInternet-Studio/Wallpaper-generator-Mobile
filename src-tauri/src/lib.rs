@@ -3,7 +3,6 @@ use std::sync::Mutex;
 use tauri::async_runtime::spawn;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_log::{Target, TargetKind};
-use tokio::time::{sleep, Duration};
 
 // Create a struct we'll use to track the completion of
 // setup related tasks
@@ -47,10 +46,6 @@ async fn set_complete(
 
 // An async function that does some heavy setup task
 async fn setup(app: AppHandle) -> Result<(), ()> {
-    // Fake performing some heavy action for 3 seconds
-    println!("Performing really heavy backend setup task...");
-    sleep(Duration::from_secs(3)).await;
-    println!("Backend setup task completed!");
     // Set the backend task as being completed
     // Commands can be ran as regular functions as long as you take
     // care of the input arguments yourself
