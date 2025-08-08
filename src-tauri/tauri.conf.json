@@ -20,7 +20,7 @@
       },
       {
         "label": "splashscreen",
-        "url": "splashscreen.html",
+        "url": "/splashscreen.html",
         "title": "Starting...",
         "width": 400,
         "height": 200,
