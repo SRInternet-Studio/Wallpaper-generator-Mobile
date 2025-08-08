@@ -1,7 +1,7 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use std::sync::Mutex;
 use tauri::async_runtime::spawn;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_log::{Target, TargetKind};
 
 // Create a struct we'll use to track the completion of
@@ -34,8 +34,12 @@ async fn set_complete(
     if state_lock.backend_task && state_lock.frontend_task {
         // Setup is complete, we can close the splashscreen
         // and unhide the main window!
-        // On mobile, we emit an event that the native shell will pick up.
-        app.emit("tauri://close-splashscreen", ()).unwrap();
+        if let Some(splash_window) = app.get_window("splashscreen") {
+            splash_window.close().unwrap();
+        }
+        if let Some(main_window) = app.get_window("main") {
+            main_window.show().unwrap();
+        }
     }
     Ok(())
 }
