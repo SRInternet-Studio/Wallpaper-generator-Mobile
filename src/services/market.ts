@@ -4,7 +4,6 @@ import { writeFile, mkdir, exists, readDir, readFile } from '@tauri-apps/plugin-
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { APICORE_SCHEMA } from './schema';
-import { sendNotification } from '@tauri-apps/plugin-notification';
 import { downloadDir, join, tempDir } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -452,10 +451,7 @@ export async function shareImage(base64Data: string): Promise<void> {
         });
     } catch (error) {
         console.error('Failed to share image:', error);
-        await sendNotification({
-            title: '分享失败',
-            body: `无法分享图片: ${String(error)}`
-        });
+        throw new Error(`无法分享图片: ${String(error)}`);
     }
 }
 
@@ -472,17 +468,9 @@ export async function downloadImage(base64Data: string, fileName: string): Promi
 
         await writeFile(filePath, data);
 
-        await sendNotification({
-            title: '下载完成',
-            body: `${fileName} 已保存。`
-        });
-
     } catch (error) {
         console.error('Failed to download image:', error);
-        await sendNotification({
-            title: '下载失败',
-            body: `无法下载图片: ${String(error)}`
-        });
+        throw new Error(`无法下载图片: ${String(error)}`);
     }
 }
 

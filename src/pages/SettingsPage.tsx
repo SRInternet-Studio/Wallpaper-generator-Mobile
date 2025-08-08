@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Typography, Button, Paper, Box, TextField, CircularProgress, Switch, FormControlLabel, IconButton, Snackbar } from '@mui/material';
+import { Typography, Button, Paper, Box, TextField, CircularProgress, Switch, FormControlLabel, IconButton } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { getSetting, setSetting } from '../services/settings';
 import { downloadDir } from '@tauri-apps/api/path';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { clearApiCache } from '../services/market';
+import { useSnackbar } from '../contexts/SnackbarProvider';
 
 export default function SettingsPage() {
   const [downloadPath, setDownloadPath] = useState('');
-  const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+  const { showSnackbar } = useSnackbar();
   const [githubPat, setGithubPat] = useState('');
   const [useStaticIndex, setUseStaticIndex] = useState(true);
   const [githubApiUrl, setGithubApiUrl] = useState('');
@@ -39,18 +40,26 @@ export default function SettingsPage() {
 
 
   const handleSaveSettings = async () => {
-    await setSetting('github_pat', githubPat);
-    await setSetting('use_static_index', useStaticIndex);
-    await setSetting('github_api_url', githubApiUrl);
-    await setSetting('static_api_url', staticApiUrl);
-    clearApiCache();
-    setSnackbar({ open: true, message: '设置已保存！' });
+    try {
+      await setSetting('github_pat', githubPat);
+      await setSetting('use_static_index', useStaticIndex);
+      await setSetting('github_api_url', githubApiUrl);
+      await setSetting('static_api_url', staticApiUrl);
+      clearApiCache();
+      showSnackbar('设置已保存！', 'success');
+    } catch (error) {
+      showSnackbar('设置保存失败。', 'error');
+    }
   };
 
   const handleCopyPath = async () => {
     if (downloadPath) {
-      await writeText(downloadPath);
-      setSnackbar({ open: true, message: '路径已复制到剪贴板' });
+      try {
+        await writeText(downloadPath);
+        showSnackbar('路径已复制到剪贴板', 'success');
+      } catch (error) {
+        showSnackbar('无法复制路径。', 'error');
+      }
     }
   };
 
@@ -77,12 +86,6 @@ export default function SettingsPage() {
           </IconButton>
         </Paper>
       </Box>
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={2000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        message={snackbar.message}
-      />
       <Box sx={{ mt: 3 }}>
         <Typography variant="h6" gutterBottom>
           GitHub 个人访问令牌 (PAT)

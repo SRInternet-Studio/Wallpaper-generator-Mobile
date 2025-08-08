@@ -14,7 +14,6 @@ import {
   DialogContentText,
   TextField,
   Button,
-  Snackbar,
   IconButton,
 } from '@mui/material';
 import { fetch } from '@tauri-apps/plugin-http';
@@ -25,6 +24,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import LinkIcon from '@mui/icons-material/Link';
 import CloseIcon from '@mui/icons-material/Close';
 import { shareImage, downloadImage } from '../services/market';
+import { useSnackbar } from '../contexts/SnackbarProvider';
 
 interface ImageComponentProps {
   src: string;
@@ -45,12 +45,12 @@ export default function ImageComponent({ src }: ImageComponentProps) {
   const [imageData, setImageData] = useState<string | null>(null); // Stores the full base64 data
   const [isDownloading, setIsDownloading] = useState(false); // Tracks the background download
   const [error, setError] = useState<string | null>(null);
+  const { showSnackbar } = useSnackbar();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
   const [fileName, setFileName] = useState('');
-  const [snackbar, setSnackbar] = useState({ open: false, message: '' });
 
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
@@ -88,42 +88,57 @@ export default function ImageComponent({ src }: ImageComponentProps) {
     downloadImageData();
   }, [src]);
 
-  const handleAction = (action: () => void) => {
+  const handleAction = async (action: () => Promise<void>) => {
     if (!imageData) {
       const message = isDownloading ? '图片仍在后台下载中，请稍后重试' : '图片数据未能下载，无法执行操作';
-      setSnackbar({ open: true, message });
+      showSnackbar(message, 'warning');
       return;
     }
-    action();
+    try {
+      await action();
+    } catch (e: any) {
+      showSnackbar(e.message, 'error');
+    }
   };
 
-  const handleShare = () => handleAction(() => {
-    if (imageData) shareImage(imageData);
+  const handleShare = () => handleAction(async () => {
+    if (imageData) {
+      await shareImage(imageData);
+      // Share sheet is native, no snackbar needed unless it fails, which is handled by handleAction.
+    }
     setIsMenuOpen(false);
   });
 
-  const handleDownload = () => handleAction(() => {
+  const handleDownload = () => {
     if (imageData) {
       const mimeType = imageData.match(/:(.*?);/)?.[1] || 'image/jpeg';
       const extension = mimeType.split('/')[1] || 'jpg';
       setFileName(`wallpaper.${extension}`);
       setIsDownloadDialogOpen(true);
+    } else {
+       const message = isDownloading ? '图片仍在后台下载中，请稍后重试' : '图片数据未能下载，无法执行操作';
+       showSnackbar(message, 'warning');
     }
     setIsMenuOpen(false);
-  });
+  };
   
-  const handleConfirmDownload = () => {
+  const handleConfirmDownload = async () => {
     if (imageData && fileName) {
-      downloadImage(imageData, fileName);
+      try {
+        await downloadImage(imageData, fileName);
+        showSnackbar(`${fileName} 已保存。`, 'success');
+      } catch (e: any) {
+        showSnackbar(e.message, 'error');
+      }
     }
     setIsDownloadDialogOpen(false);
     setFileName('');
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     if (src.startsWith('http')) {
-      writeText(src);
-      setSnackbar({ open: true, message: '链接已复制' });
+      await writeText(src);
+      showSnackbar('链接已复制', 'success');
     }
     setIsMenuOpen(false);
   };
@@ -278,12 +293,6 @@ export default function ImageComponent({ src }: ImageComponentProps) {
         </Box>
       )}
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={2000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        message={snackbar.message}
-      />
     </Box>
   );
 }
