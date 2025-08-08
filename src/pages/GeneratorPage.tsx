@@ -9,7 +9,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { getApiByName, ApiSource, generateImages, shareImage, downloadImage } from '../services/market';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-import CachedImage from '../components/CachedImage';
 
 export default function GeneratorPage() {
   const { apiName } = useParams<{ apiName: string }>();
@@ -18,7 +17,6 @@ export default function GeneratorPage() {
   const [formState, setFormState] = useState<Record<string, any>>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
-  const [imageCache, setImageCache] = useState<Record<string, string>>({});
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [actionMenuImage, setActionMenuImage] = useState<string | null>(null);
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
@@ -73,9 +71,9 @@ export default function GeneratorPage() {
     if (!apiSource) return;
     setIsGenerating(true);
     setGeneratedImages([]);
-    setImageCache({});
-    const imageUrls = await generateImages(apiSource, formState);
-    setGeneratedImages(imageUrls);
+    await generateImages(apiSource, formState, (newImage) => {
+      setGeneratedImages(prevImages => [...prevImages, newImage]);
+    });
     setIsGenerating(false);
   };
 
@@ -95,14 +93,9 @@ export default function GeneratorPage() {
     setActionMenuImage(null);
   };
 
-  const handleImageLoad = (src: string, data: string) => {
-    setImageCache(prevCache => ({ ...prevCache, [src]: data }));
-  };
-
   const handleShareAction = () => {
     if (actionMenuImage) {
-      const imageData = imageCache[actionMenuImage] || actionMenuImage;
-      shareImage(imageData);
+      shareImage(actionMenuImage);
     }
     handleActionMenuClose();
   };
@@ -127,8 +120,7 @@ export default function GeneratorPage() {
 
   const handleConfirmDownload = () => {
     if (actionMenuImage && fileName) {
-      const imageData = imageCache[actionMenuImage] || actionMenuImage;
-      downloadImage(imageData, fileName);
+      downloadImage(actionMenuImage, fileName);
     }
     setDownloadDialogOpen(false);
     setFileName('');
@@ -277,20 +269,24 @@ export default function GeneratorPage() {
             生成结果
           </Typography>
           <ImageList variant="masonry" cols={cols} gap={8}>
-            {generatedImages.map((src) => (
+            {generatedImages.map((img) => (
               <ImageListItem
-                key={src}
-                onClick={() => handleClick(src)}
+                key={img}
+                onClick={() => handleClick(img)}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  handleImageLongPress(src);
+                  handleImageLongPress(img);
                 }}
-                onTouchStart={() => handleTouchStart(src)}
+                onTouchStart={() => handleTouchStart(img)}
                 onTouchEnd={handleTouchEnd}
                 onTouchMove={handleTouchEnd} // Cancel long press if finger moves
                 sx={{ cursor: 'pointer', borderRadius: '8px', overflow: 'hidden', boxShadow: 4, border: '1px solid rgba(0, 0, 0, 0.1)' }}
               >
-                <CachedImage src={src} onImageLoad={handleImageLoad} />
+                <img
+                  src={img}
+                  alt=""
+                  loading="lazy"
+                />
               </ImageListItem>
             ))}
           </ImageList>
