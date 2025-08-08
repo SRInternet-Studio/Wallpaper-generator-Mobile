@@ -96,6 +96,9 @@ export default function ImageGrid({ images, cols }: ImageGridProps) {
         <Typography variant="h5" gutterBottom>
           生成结果
         </Typography>
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+          提示：长按图片可进行分享或下载。
+        </Typography>
         <ImageList variant="masonry" cols={cols} gap={8}>
           {images.map((img) => (
             <ImageListItem
