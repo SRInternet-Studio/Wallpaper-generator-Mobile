@@ -1,6 +1,6 @@
 import { fetch } from '@tauri-apps/plugin-http';
 import { getSetting } from './settings';
-import { writeFile, mkdir, exists, readDir, readFile } from '@tauri-apps/plugin-fs';
+import { writeFile, mkdir, exists } from '@tauri-apps/plugin-fs';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { APICORE_SCHEMA } from './schema';
@@ -488,63 +488,5 @@ export async function downloadImage(src: string, fileName: string): Promise<void
             title: '下载失败',
             body: `无法下载图片: ${String(error)}`
         });
-    }
-}
-
-function getMimeType(fileName: string): string {
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    switch (extension) {
-        case 'jpg':
-        case 'jpeg':
-            return 'image/jpeg';
-        case 'png':
-            return 'image/png';
-        case 'gif':
-            return 'image/gif';
-        case 'webp':
-            return 'image/webp';
-        default:
-            return 'application/octet-stream';
-    }
-}
-
-export async function getLocalImages(): Promise<string[]> {
-    try {
-        const dir = await downloadDir();
-        if (!await exists(dir)) {
-            return [];
-        }
-
-        const entries = await readDir(dir);
-        const imageFiles = entries.filter(entry =>
-            entry.isFile && /\.(jpe?g|png|gif|webp)$/i.test(entry.name || '')
-        );
-
-        const imagePromises = imageFiles.map(async (file) => {
-            if (file.name) {
-                try {
-                    const filePath = await join(dir, file.name);
-                    const contents = await readFile(filePath);
-                    const mimeType = getMimeType(file.name);
-                    let binary = '';
-                    for (let i = 0; i < contents.byteLength; i++) {
-                        binary += String.fromCharCode(contents[i]);
-                    }
-                    const base64 = btoa(binary);
-                    return `data:${mimeType};base64,${base64}`;
-                } catch (readError) {
-                    console.error(`Failed to read file ${file.name}:`, readError);
-                    return null;
-                }
-            }
-            return null;
-        });
-
-        const results = await Promise.all(imagePromises);
-        return results.filter((item): item is string => item !== null);
-
-    } catch (error) {
-        console.error('Failed to get local images:', error);
-        return [];
     }
 }

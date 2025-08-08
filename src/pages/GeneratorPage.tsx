@@ -1,14 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, useMediaQuery, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, Snackbar } from '@mui/material';
+import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, useMediaQuery, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
-import LinkIcon from '@mui/icons-material/Link';
 import CloseIcon from '@mui/icons-material/Close';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { getApiByName, ApiSource, generateImages, shareImage, downloadImage } from '../services/market';
-import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import CachedImage from '../components/CachedImage';
 
 export default function GeneratorPage() {
@@ -23,7 +21,6 @@ export default function GeneratorPage() {
   const [actionMenuImage, setActionMenuImage] = useState<string | null>(null);
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [fileName, setFileName] = useState('');
-  const [snackbar, setSnackbar] = useState({ open: false, message: '' });
 
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
@@ -103,14 +100,6 @@ export default function GeneratorPage() {
     if (actionMenuImage) {
       const imageData = imageCache[actionMenuImage] || actionMenuImage;
       shareImage(imageData);
-    }
-    handleActionMenuClose();
-  };
-
-  const handleCopyLinkAction = () => {
-    if (actionMenuImage && actionMenuImage.startsWith('http')) {
-      writeText(actionMenuImage);
-      setSnackbar({ open: true, message: '链接已复制' });
     }
     handleActionMenuClose();
   };
@@ -326,16 +315,6 @@ export default function GeneratorPage() {
             }}
           />
           <List>
-            {actionMenuImage && actionMenuImage.startsWith('http') && (
-              <ListItem disablePadding>
-                <ListItemButton onClick={handleCopyLinkAction}>
-                  <ListItemIcon>
-                    <LinkIcon />
-                  </ListItemIcon>
-                  <ListItemText primary="复制链接" />
-                </ListItemButton>
-              </ListItem>
-            )}
             <ListItem disablePadding>
               <ListItemButton onClick={handleShareAction}>
                 <ListItemIcon>
@@ -355,13 +334,6 @@ export default function GeneratorPage() {
           </List>
         </Box>
       </Drawer>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={2000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        message={snackbar.message}
-      />
 
       <Dialog open={downloadDialogOpen} onClose={() => setDownloadDialogOpen(false)}>
         <DialogTitle>保存图片</DialogTitle>
