@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Typography, Box, CircularProgress, ImageList, ImageListItem, useMediaQuery } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { getLocalImages } from '../services/market';
+import ImageComponent from '../components/ImageComponent';
 
 export default function HomePage() {
   const [localImages, setLocalImages] = useState<string[]>([]);
@@ -42,12 +43,8 @@ export default function HomePage() {
       {localImages.length > 0 ? (
         <ImageList variant="masonry" cols={cols} gap={8}>
           {localImages.map((img, index) => (
-            <ImageListItem key={index} sx={{ borderRadius: '8px', overflow: 'hidden', boxShadow: 3 }}>
-              <img
-                src={img}
-                alt={`local-image-${index}`}
-                loading="lazy"
-              />
+            <ImageListItem key={index}>
+              <ImageComponent src={img} />
             </ImageListItem>
           ))}
         </ImageList>
