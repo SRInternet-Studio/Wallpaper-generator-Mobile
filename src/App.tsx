@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
 import { SnackbarProvider } from './context/SnackbarContext';
 import Layout from './components/Layout';
@@ -17,7 +17,7 @@ function App() {
   }, []); // Empty dependency array ensures this runs only once.
 
   return (
-    <HashRouter>
+    <BrowserRouter>
       <SnackbarProvider>
         <Routes>
           <Route path="/" element={<Layout />}>
@@ -28,7 +28,7 @@ function App() {
           </Route>
         </Routes>
       </SnackbarProvider>
-    </HashRouter>
+    </BrowserRouter>
   );
 }
 
