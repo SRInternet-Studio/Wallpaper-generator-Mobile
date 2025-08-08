@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Typography, Button, Paper, Box, TextField, CircularProgress, Switch, FormControlLabel, IconButton, Snackbar } from '@mui/material';
+import { Typography, Button, Paper, Box, TextField, CircularProgress, Switch, FormControlLabel, IconButton } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { getSetting, setSetting } from '../services/settings';
 import { downloadDir } from '@tauri-apps/api/path';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { clearApiCache } from '../services/market';
+import { useSnackbar } from '../context/SnackbarContext';
 
 export default function SettingsPage() {
+  const { showSnackbar } = useSnackbar();
   const [downloadPath, setDownloadPath] = useState('');
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [githubPat, setGithubPat] = useState('');
   const [useStaticIndex, setUseStaticIndex] = useState(true);
   const [githubApiUrl, setGithubApiUrl] = useState('');
@@ -44,13 +45,13 @@ export default function SettingsPage() {
     await setSetting('github_api_url', githubApiUrl);
     await setSetting('static_api_url', staticApiUrl);
     clearApiCache();
-    alert('设置已保存！');
+    showSnackbar('设置已保存！');
   };
 
   const handleCopyPath = async () => {
     if (downloadPath) {
       await writeText(downloadPath);
-      setSnackbarOpen(true);
+      showSnackbar('路径已复制到剪贴板');
     }
   };
 
@@ -77,12 +78,6 @@ export default function SettingsPage() {
           </IconButton>
         </Paper>
       </Box>
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={2000}
-        onClose={() => setSnackbarOpen(false)}
-        message="路径已复制到剪贴板"
-      />
       <Box sx={{ mt: 3 }}>
         <Typography variant="h6" gutterBottom>
           GitHub 个人访问令牌 (PAT)

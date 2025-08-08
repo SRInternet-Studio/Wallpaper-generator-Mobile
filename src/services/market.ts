@@ -4,7 +4,6 @@ import { writeFile, mkdir, exists } from '@tauri-apps/plugin-fs';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { APICORE_SCHEMA } from './schema';
-import { sendNotification } from '@tauri-apps/plugin-notification';
 import { downloadDir, join, tempDir } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -441,7 +440,7 @@ async function getImageDataAsUint8Array(imageUrl: string): Promise<Uint8Array> {
     }
 }
 
-async function downloadImageToTemp(imageUrl: string): Promise<string | null> {
+async function downloadImageToTemp(imageUrl: string): Promise<string> {
     try {
         const saveData = await getImageDataAsUint8Array(imageUrl);
         const temp = await tempDir();
@@ -452,39 +451,30 @@ async function downloadImageToTemp(imageUrl: string): Promise<string | null> {
         return filePath;
     } catch (error) {
         console.error('Failed to download image to temp:', error);
-        await sendNotification({
-            title: '下载失败',
-            body: `无法下载图片: ${String(error)}`
-        });
-        return null;
+        throw new Error(`无法下载图片: ${String(error)}`);
     }
 }
 
 export async function shareImage(imageUrl: string): Promise<void> {
     const tempFilePath = await downloadImageToTemp(imageUrl);
-    if (tempFilePath) {
-        try {
-            const mimeType = imageUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
-            const title = tempFilePath.split('/').pop() || 'image';
-            
-            await invoke("plugin:sharesheet|share_file", {
-              file: tempFilePath,
-              options: {
-                mimeType,
-                title,
-              },
-            });
-        } catch (error) {
-            console.error('Failed to share image:', error);
-            await sendNotification({
-                title: '分享失败',
-                body: `无法分享图片: ${String(error)}`
-            });
-        }
+    try {
+        const mimeType = imageUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        const title = tempFilePath.split('/').pop() || 'image';
+        
+        await invoke("plugin:sharesheet|share_file", {
+            file: tempFilePath,
+            options: {
+            mimeType,
+            title,
+            },
+        });
+    } catch (error) {
+        console.error('Failed to share image:', error);
+        throw new Error(`无法分享图片: ${String(error)}`);
     }
 }
 
-export async function downloadImage(imageUrl: string): Promise<void> {
+export async function downloadImage(imageUrl: string): Promise<string> {
     try {
         const saveData = await getImageDataAsUint8Array(imageUrl);
         const saveDir = await downloadDir();
@@ -497,17 +487,10 @@ export async function downloadImage(imageUrl: string): Promise<void> {
         const filePath = await join(saveDir, fileName);
 
         await writeFile(filePath, saveData);
-
-        await sendNotification({
-            title: '下载完成',
-            body: `${fileName} 已保存。`
-        });
+        return fileName;
 
     } catch (error) {
         console.error('Failed to download image:', error);
-        await sendNotification({
-            title: '下载失败',
-            body: `无法下载图片: ${String(error)}`
-        });
+        throw new Error(`无法下载图片: ${String(error)}`);
     }
 }

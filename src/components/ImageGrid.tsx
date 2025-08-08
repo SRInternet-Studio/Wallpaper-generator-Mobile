@@ -3,6 +3,7 @@ import { ImageList, ImageListItem, Box, Typography, Drawer, List, ListItem, List
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
 import { shareImage, downloadImage } from '../services/market';
+import { useSnackbar } from '../context/SnackbarContext';
 
 interface ImageGridProps {
   images: string[];
@@ -10,6 +11,7 @@ interface ImageGridProps {
 }
 
 export default function ImageGrid({ images, cols }: ImageGridProps) {
+  const { showSnackbar } = useSnackbar();
   const [actionMenuImage, setActionMenuImage] = useState<string | null>(null);
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
@@ -26,16 +28,26 @@ export default function ImageGrid({ images, cols }: ImageGridProps) {
     setActionMenuImage(null);
   };
 
-  const handleShareAction = () => {
+  const handleShareAction = async () => {
     if (actionMenuImage) {
-      shareImage(actionMenuImage);
+      try {
+        await shareImage(actionMenuImage);
+        showSnackbar('已调用分享菜单');
+      } catch (error: any) {
+        showSnackbar(error.message || '分享失败');
+      }
     }
     handleActionMenuClose();
   };
 
-  const handleDownloadAction = () => {
+  const handleDownloadAction = async () => {
     if (actionMenuImage) {
-      downloadImage(actionMenuImage);
+      try {
+        const fileName = await downloadImage(actionMenuImage);
+        showSnackbar(`${fileName} 已保存。`);
+      } catch (error: any) {
+        showSnackbar(error.message || '下载失败');
+      }
     }
     handleActionMenuClose();
   };
