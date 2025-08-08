@@ -3,12 +3,14 @@ import {
   Typography, Button, Paper, Box, CircularProgress, Grid, Dialog, DialogTitle,
   DialogContent, List, ListItem, ListItemIcon, ListItemText, IconButton, DialogActions, ListItemButton
 } from '@mui/material';
-import { downloadDir, tempDir, join } from '@tauri-apps/api/path';
+import { downloadDir, tempDir, join, basename } from '@tauri-apps/api/path';
 import { readDir, remove, stat, DirEntry, readFile } from '@tauri-apps/plugin-fs';
+import { invoke } from '@tauri-apps/api/core';
 import FolderIcon from '@mui/icons-material/Folder';
 import FileIcon from '@mui/icons-material/InsertDriveFile';
 import ImageIcon from '@mui/icons-material/Image';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ShareIcon from '@mui/icons-material/Share';
 import { useSnackbar } from '../context/SnackbarContext';
 
 interface EnhancedDirEntry extends DirEntry {
@@ -54,7 +56,7 @@ export default function FileManager() {
   const [downloadPath, setDownloadPath] = useState('');
   const [cacheSize, setCacheSize] = useState(0);
   const [downloadSize, setDownloadSize] = useState(0);
-  const [loading, setLoading] = useState<'cache' | 'download' | 'clearCache' | 'clearDownload' | null>(null);
+  const [loading, setLoading] = useState<'cache' | 'download' | 'clearCache' | 'clearDownload' | 'share' | null>(null);
   const { showSnackbar } = useSnackbar();
 
   // Dialog state
@@ -64,6 +66,7 @@ export default function FileManager() {
   const [dialogEntries, setDialogEntries] = useState<EnhancedDirEntry[]>([]);
   const [dialogLoading, setDialogLoading] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewImagePath, setPreviewImagePath] = useState<string | null>(null);
 
   const refreshSizes = useCallback(async () => {
     setLoading('cache');
@@ -146,9 +149,37 @@ export default function FileManager() {
       const base64 = btoa(String.fromCharCode(...new Uint8Array(contents)));
       const mimeType = filePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
       setPreviewImageUrl(`data:${mimeType};base64,${base64}`);
+      setPreviewImagePath(filePath);
     } catch (error) {
       showSnackbar(`无法预览图片: ${error}`);
     }
+  };
+
+  const handleShareFromPreview = async () => {
+    if (previewImagePath) {
+      setLoading('share');
+      try {
+        const title = await basename(previewImagePath);
+        const mimeType = previewImagePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        await invoke("plugin:sharesheet|share_file", {
+          file: previewImagePath,
+          options: {
+            mimeType,
+            title,
+          },
+        });
+        showSnackbar('已调用分享菜单');
+      } catch (error: any) {
+        showSnackbar(error.message || '分享失败');
+      } finally {
+        setLoading(null);
+      }
+    }
+  };
+
+  const closePreview = () => {
+    setPreviewImageUrl(null);
+    setPreviewImagePath(null);
   };
 
   return (
@@ -226,10 +257,16 @@ export default function FileManager() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!previewImageUrl} onClose={() => setPreviewImageUrl(null)} maxWidth="lg">
+      <Dialog open={!!previewImageUrl} onClose={closePreview} maxWidth="lg">
         <DialogContent>
           <img src={previewImageUrl || ''} alt="Preview" style={{ maxWidth: '100%', maxHeight: '80vh' }} />
         </DialogContent>
+        <DialogActions>
+          <Button onClick={handleShareFromPreview} disabled={loading === 'share'} startIcon={loading === 'share' ? <CircularProgress size={16} /> : <ShareIcon />}>
+            分享
+          </Button>
+          <Button onClick={closePreview}>关闭</Button>
+        </DialogActions>
       </Dialog>
     </>
   );
