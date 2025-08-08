@@ -1,5 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { resolve } from "path";
+import { fileURLToPath } from "url";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -26,6 +28,14 @@ export default defineConfig(async () => ({
     watch: {
       // 3. tell vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
+    },
+  },
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(fileURLToPath(new URL('.', import.meta.url)), "index.html"),
+        splashscreen: resolve(fileURLToPath(new URL('.', import.meta.url)), "splashscreen.html"),
+      },
     },
   },
 }));
