@@ -328,7 +328,22 @@ function parseResponse(data: any, path: string): any {
 }
 
 
-export async function generateImages(apiConfig: ApiSource, formState: Record<number, any>): Promise<string[]> {
+// Helper to convert ArrayBuffer to Base64
+function bufferToBase64(buffer: ArrayBuffer, mimeType: string): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+    return `data:${mimeType};base64,${base64}`;
+}
+
+export async function generateImages(
+    apiConfig: ApiSource, 
+    formState: Record<number, any>,
+    onImageReady: (base64Data: string) => void
+): Promise<void> {
     console.log("Generating images with config:", apiConfig);
     console.log("Payload (formState by index):", formState);
 
@@ -360,74 +375,67 @@ export async function generateImages(apiConfig: ApiSource, formState: Record<num
         if (!response.ok) throw new Error(`API request failed: ${response.status}`);
 
         const responseDataBuffer = await response.arrayBuffer();
-        let imageUrls: string[] = [];
+        const mimeType = response.headers.get('Content-Type') || 'image/jpeg';
 
         switch (imageConfig.content_type) {
-            case 'BINARY': {
-                const mimeType = response.headers.get('Content-Type') || 'image/jpeg';
-                const bytes = new Uint8Array(responseDataBuffer);
-                let binary = '';
-                for (let i = 0; i < bytes.byteLength; i++) {
-                    binary += String.fromCharCode(bytes[i]);
-                }
-                const base64 = btoa(binary);
-                imageUrls.push(`data:${mimeType};base64,${base64}`);
+            case 'BINARY':
+                onImageReady(bufferToBase64(responseDataBuffer, mimeType));
                 break;
-            }
 
             case 'BASE64': {
                 const textData = new TextDecoder().decode(responseDataBuffer);
                 const path = imageConfig.path || '';
                 const base64Data = path ? parseResponse(JSON.parse(textData), path) : textData;
                 const dataArray = Array.isArray(base64Data) ? base64Data : [base64Data];
-                imageUrls = dataArray.map(b64 => `data:image/png;base64,${b64}`); // Assuming png for now
+                dataArray.forEach(b64 => onImageReady(`data:image/png;base64,${b64}`)); // Assuming png for now
                 break;
             }
 
             case 'URL': {
                 const textData = new TextDecoder().decode(responseDataBuffer);
+                let urls: string[] = [];
                 try {
                     const data = JSON.parse(textData);
                     const path = imageConfig.path || '';
                     const extracted = path ? parseResponse(data, path) : data;
-                    imageUrls = Array.isArray(extracted) ? extracted : [extracted];
+                    urls = Array.isArray(extracted) ? extracted : [extracted];
                 } catch (e) {
-                    imageUrls = textData.split('\n').filter(url => url.trim().startsWith('http'));
+                    urls = textData.split('\n').filter(url => url.trim().startsWith('http'));
                 }
+
+                const downloadPromises = urls.filter(Boolean).map(async (url) => {
+                    try {
+                        const imgResponse = await fetch(url);
+                        if (!imgResponse.ok) return;
+                        const imgBuffer = await imgResponse.arrayBuffer();
+                        const imgMimeType = imgResponse.headers.get('Content-Type') || 'image/jpeg';
+                        onImageReady(bufferToBase64(imgBuffer, imgMimeType));
+                    } catch (e) {
+                        console.error(`Failed to download image from URL ${url}:`, e);
+                    }
+                });
+                
+                await Promise.all(downloadPromises);
                 break;
             }
         }
-
-        return imageUrls.filter(Boolean);
-
     } catch (error) {
         console.error('Failed to generate images:', error);
-        return [];
     }
 }
 
-async function getImageData(src: string): Promise<{ data: Uint8Array; mimeType: string; extension: string; }> {
-    if (src.startsWith('data:')) {
-        const [header, base64] = src.split(',');
-        const mimeType = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
-        const extension = mimeType.split('/')[1] || 'jpg';
-        const binaryString = atob(base64);
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-        return { data: bytes, mimeType, extension };
-    } else {
-        const response = await fetch(src);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch image from ${src}: ${response.status}`);
-        }
-        const mimeType = response.headers.get('Content-Type') || 'image/jpeg';
-        const extension = mimeType.split('/')[1] || 'jpg';
-        const buffer = await response.arrayBuffer();
-        return { data: new Uint8Array(buffer), mimeType, extension };
+// Helper to decode Base64 and get metadata
+function decodeBase64(base64DataUrl: string) {
+    const [header, base64] = base64DataUrl.split(',');
+    const mimeType = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
+    const extension = mimeType.split('/')[1] || 'jpg';
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
     }
+    return { data: bytes, mimeType, extension };
 }
 
 // Helper to create a hash from data
@@ -437,9 +445,9 @@ async function createHash(data: Uint8Array): Promise<string> {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function shareImage(src: string): Promise<void> {
+export async function shareImage(base64Data: string): Promise<void> {
     try {
-        const { data, mimeType, extension } = await getImageData(src);
+        const { data, mimeType, extension } = decodeBase64(base64Data);
         const hash = await createHash(data);
         const fileName = `${hash}.${extension}`;
         
@@ -464,9 +472,9 @@ export async function shareImage(src: string): Promise<void> {
     }
 }
 
-export async function downloadImage(src: string, fileName: string): Promise<void> {
+export async function downloadImage(base64Data: string, fileName: string): Promise<void> {
     try {
-        const { data } = await getImageData(src);
+        const { data } = decodeBase64(base64Data);
         const saveDir = await downloadDir();
 
         if (!await exists(saveDir)) {
