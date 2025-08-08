@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import {
   Box,
+  CircularProgress,
+  Skeleton,
   Drawer,
   List,
   ListItem,
@@ -42,9 +44,9 @@ function bufferToBase64(buffer: ArrayBuffer, mimeType: string): string {
 }
 
 export default function ImageComponent({ src }: ImageComponentProps) {
-  const [imageData, setImageData] = useState<string | null>(null); // Stores the full base64 data
-  const [isDownloading, setIsDownloading] = useState(false); // Tracks the background download
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [imageData, setImageData] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -56,42 +58,44 @@ export default function ImageComponent({ src }: ImageComponentProps) {
   const longPressTriggered = useRef(false);
 
   useEffect(() => {
-    const downloadImageData = async () => {
+    const loadImage = async () => {
       if (!src) return;
+
+      setLoading(true);
+      setError(null);
 
       if (src.startsWith('data:image')) {
         setImageData(src);
-        setIsDownloading(false);
-        return;
-      }
-
-      if (src.startsWith('http')) {
-        setIsDownloading(true);
-        setError(null);
+        setLoading(false);
+      } else if (src.startsWith('http')) {
         try {
-          const response = await fetch(src, { method: 'GET' });
-          if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
+          const response = await fetch(src, {
+            method: 'GET',
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status}`);
+          }
           
           const mimeType = response.headers.get('content-type') || 'image/jpeg';
           const buffer = await response.arrayBuffer();
           const base64Data = bufferToBase64(buffer, mimeType);
           setImageData(base64Data);
         } catch (e: any) {
-          console.error(`Failed to download image data from ${src}`, e);
-          setError('图片数据下载失败');
+          console.error(`Failed to load image from ${src}`, e);
+          setError('图片加载失败');
         } finally {
-          setIsDownloading(false);
+          setLoading(false);
         }
       }
     };
 
-    downloadImageData();
+    loadImage();
   }, [src]);
 
   const handleAction = (action: () => void) => {
-    if (!imageData) {
-      const message = isDownloading ? '图片仍在后台下载中，请稍后重试' : '图片数据未能下载，无法执行操作';
-      setSnackbar({ open: true, message });
+    if (loading || !imageData) {
+      setSnackbar({ open: true, message: '图片未加载完成，请稍后重试' });
       return;
     }
     action();
@@ -149,32 +153,33 @@ export default function ImageComponent({ src }: ImageComponentProps) {
   };
 
   const renderContent = () => {
-    return (
-      <Box sx={{ position: 'relative', width: '100%', background: '#f0f0f0', paddingTop: '100%' /* 1:1 Aspect Ratio */ }}>
+    if (loading) {
+      return (
+        <Box sx={{ position: 'relative', width: '100%', paddingTop: '100%' /* 1:1 Aspect Ratio */ }}>
+            <Skeleton variant="rectangular" sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
+            <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress />
+            </Box>
+        </Box>
+      );
+    }
+
+    if (error) {
+      return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 190, backgroundColor: 'grey.200' }}>{error}</Box>;
+    }
+
+    if (imageData) {
+      return (
         <img
-          src={src}
+          src={imageData}
           alt=""
           loading="lazy"
-          onError={() => {
-            setError('图片加载失败');
-          }}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            opacity: error ? 0.5 : 1,
-          }}
+          style={{ width: '100%', height: 'auto', display: 'block' }}
         />
-        {error && !isDownloading && (
-          <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', backdropFilter: 'blur(2px)' }}>
-            {error}
-          </Box>
-        )}
-      </Box>
-    );
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -270,7 +275,7 @@ export default function ImageComponent({ src }: ImageComponentProps) {
             <TransformWrapper>
               <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
                 <div style={{ width: '100%', height: '100%', borderRadius: '8px', overflow: 'hidden' }}>
-                  <img src={imageData || src} alt="enlarged" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <img src={imageData || ''} alt="enlarged" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </div>
               </TransformComponent>
             </TransformWrapper>
