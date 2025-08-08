@@ -4,7 +4,7 @@ import FileManager from '../components/FileManager';
 export default function HomePage() {
   return (
     <div>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" gutterBottom sx={{ mt: 2 }}>
         欢迎使用壁纸生成器
       </Typography>
       <Typography variant="body1">

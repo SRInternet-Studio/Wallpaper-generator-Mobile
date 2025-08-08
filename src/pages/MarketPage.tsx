@@ -56,7 +56,7 @@ export default function MarketPage() {
   return (
     <div>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h4" gutterBottom sx={{ mb: 0 }}>
+        <Typography variant="h4" gutterBottom sx={{ mb: 0, mt: 2 }}>
           图片源市场
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
