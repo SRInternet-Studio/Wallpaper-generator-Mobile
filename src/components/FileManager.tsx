@@ -161,7 +161,7 @@ export default function FileManager() {
       try {
         const title = await basename(previewImagePath);
         const mimeType = previewImagePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
-        await invoke("plugin:sharesheet|share_file", {
+        invoke("plugin:sharesheet|share_file", {
           file: previewImagePath,
           options: {
             mimeType,
