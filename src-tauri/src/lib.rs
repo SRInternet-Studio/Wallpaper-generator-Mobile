@@ -34,10 +34,10 @@ async fn set_complete(
     if state_lock.backend_task && state_lock.frontend_task {
         // Setup is complete, we can close the splashscreen
         // and unhide the main window!
-        if let Some(splash_window) = app.get_webview_window("splashscreen") {
+        if let Some(splash_window) = app.get_window("splashscreen") {
             splash_window.close().unwrap();
         }
-        if let Some(main_window) = app.get_webview_window("main") {
+        if let Some(main_window) = app.get_window("main") {
             main_window.show().unwrap();
         }
     }
