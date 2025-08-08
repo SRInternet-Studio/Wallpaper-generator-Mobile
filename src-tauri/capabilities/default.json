@@ -24,10 +24,7 @@
     {
       "identifier": "fs:scope",
       "allow": [
-        { "path": "$APPDATA/**" },
-        { "path": "$DOWNLOAD/**" },
-        { "path": "$PICTURE/**" },
-        { "path": "$TEMP/**" }
+        { "path": "**" }
       ]
     },
     "sharesheet:default",

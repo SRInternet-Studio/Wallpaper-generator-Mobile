@@ -518,7 +518,7 @@ export async function shareImage(imageUrl: string): Promise<void> {
         const mimeType = imageUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
         const title = tempFilePath.split('/').pop() || 'image';
         
-        await invoke("plugin:sharesheet|share_file", {
+        invoke("plugin:sharesheet|share_file", {
             file: tempFilePath,
             options: {
             mimeType,
