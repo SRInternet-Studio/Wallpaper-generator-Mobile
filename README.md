@@ -1,6 +1,20 @@
-# Wallpaper Generator (Tauri + React + TypeScript)
+# 壁纸生成器 NEXT - 手机版
+#### (Tauri + React + TypeScript)
+
+<p>
+<img src="https://img.shields.io/github/languages/top/SRInternet-Studio/Wallpaper-generator-Mobile" alt="Language">
+<img src="https://img.shields.io/badge/FREE-100%25-brightgreen" alt="FREE">
+<img alt="GitHub Release" src="https://img.shields.io/github/v/release/SRInternet-Studio/Wallpaper-generator-Mobile?label=%E6%AD%A3%E5%BC%8F%E7%89%88">
+<img alt="GitHub Release" src="https://img.shields.io/github/v/release/SRInternet-Studio/Wallpaper-generator-Mobile?include_prereleases&label=%E9%A2%84%E8%A7%88%E7%89%88">
+<img src="https://img.shields.io/github/stars/SRInternet-Studio/Wallpaper-generator-Mobile" alt="Stars">
+<img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/SRInternet-Studio/Wallpaper-generator-Mobile/total?style=social&logo=github&label=%E4%B8%8B%E8%BD%BD%E9%87%8F">
+</p>
 
 这是一个使用 Tauri 框架构建的跨平台桌面和移动应用，旨在提供一个灵活的壁纸生成和管理工具。应用的核心是通过一个可扩展的“图片源市场”来获取和配置不同的图片 API，从而动态生成和下载壁纸。
+
+> [!Important]
+>
+> 我们正在逐步从[旧存储库1](https://github.com/SRInternet/Wallpaper-generator-for-Android/)和[旧存储库2](https://github.com/SRInternet-Studio/Wallpaper_Generator_PE/)转移资源和内容到本存储库，并进行重构，目前可能还存在一些信息遗漏和丢失的情况。若您确定你发现了问题，或想要提出建议，欢迎[查阅和提出新的 issue ](https://github.com/SRInternet-Studio/Wallpaper-generator-Mobile/issues)
 
 ## ✨ 功能特性
 
