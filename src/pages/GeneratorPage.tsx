@@ -1,9 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, useMediaQuery } from '@mui/material';
+import { Typography, Box, CircularProgress, TextField, Slider, Switch, FormControl, InputLabel, Select, MenuItem, Button, Paper, FormControlLabel, ImageList, ImageListItem, IconButton, useMediaQuery, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { getApiByName, ApiSource, generateImages } from '../services/market';
-import ImageComponent from '../components/ImageComponent';
+import ShareIcon from '@mui/icons-material/Share';
+import DownloadIcon from '@mui/icons-material/Download';
+import LinkIcon from '@mui/icons-material/Link';
+import CloseIcon from '@mui/icons-material/Close';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import { getApiByName, ApiSource, generateImages, shareImage, downloadImage } from '../services/market';
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 
 export default function GeneratorPage() {
   const { apiName } = useParams<{ apiName: string }>();
@@ -12,6 +17,11 @@ export default function GeneratorPage() {
   const [formState, setFormState] = useState<Record<string, any>>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [actionMenuImage, setActionMenuImage] = useState<string | null>(null);
+
+  const longPressTimer = useRef<number | null>(null);
+  const longPressTriggered = useRef(false);
 
   const theme = useTheme();
   const isSm = useMediaQuery(theme.breakpoints.up('sm'));
@@ -58,9 +68,66 @@ export default function GeneratorPage() {
     if (!apiSource) return;
     setIsGenerating(true);
     setGeneratedImages([]);
-    const images = await generateImages(apiSource, formState);
-    setGeneratedImages(images);
+    const imageUrls = await generateImages(apiSource, formState);
+    setGeneratedImages(imageUrls);
     setIsGenerating(false);
+  };
+
+  const handleImageClick = (img: string) => {
+    setSelectedImage(img);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedImage(null);
+  };
+
+  const handleImageLongPress = (img: string) => {
+    setActionMenuImage(img);
+  };
+
+  const handleActionMenuClose = () => {
+    setActionMenuImage(null);
+  };
+
+  const handleShareAction = () => {
+    if (actionMenuImage) {
+      shareImage(actionMenuImage);
+    }
+    handleActionMenuClose();
+  };
+
+  const handleCopyLinkAction = () => {
+    if (actionMenuImage && actionMenuImage.startsWith('http')) {
+      writeText(actionMenuImage);
+    }
+    handleActionMenuClose();
+  };
+
+  const handleDownloadAction = () => {
+    if (actionMenuImage) {
+      downloadImage(actionMenuImage);
+    }
+    handleActionMenuClose();
+  };
+
+  const handleTouchStart = (img: string) => {
+    longPressTriggered.current = false;
+    longPressTimer.current = window.setTimeout(() => {
+      longPressTriggered.current = true;
+      handleImageLongPress(img);
+    }, 500); // 500ms for long press
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+    }
+  };
+
+  const handleClick = (img: string) => {
+    if (!longPressTriggered.current) {
+      handleImageClick(img);
+    }
   };
 
   const renderParameter = (param: any, index: number) => {
@@ -186,12 +253,131 @@ export default function GeneratorPage() {
             生成结果
           </Typography>
           <ImageList variant="masonry" cols={cols} gap={8}>
-            {generatedImages.map((img, index) => (
-              <ImageListItem key={`${img}-${index}`}>
-                <ImageComponent src={img} />
+            {generatedImages.map((img) => (
+              <ImageListItem
+                key={img}
+                onClick={() => handleClick(img)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  handleImageLongPress(img);
+                }}
+                onTouchStart={() => handleTouchStart(img)}
+                onTouchEnd={handleTouchEnd}
+                onTouchMove={handleTouchEnd} // Cancel long press if finger moves
+                sx={{ cursor: 'pointer', borderRadius: '8px', overflow: 'hidden', boxShadow: 4, border: '1px solid rgba(0, 0, 0, 0.1)' }}
+              >
+                <img
+                  src={img}
+                  alt=""
+                  loading="lazy"
+                />
               </ImageListItem>
             ))}
           </ImageList>
+        </Box>
+      )}
+
+      <Drawer
+        anchor="bottom"
+        open={!!actionMenuImage}
+        onClose={handleActionMenuClose}
+        sx={{ zIndex: 1400 }} // Higher than the image modal
+        slotProps={{
+          paper: {
+            sx: {
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+            },
+          },
+        }}
+      >
+        <Box
+          sx={{ width: 'auto', pb: 2, pt: 1 }}
+          role="presentation"
+        >
+          <Box
+            sx={{
+              width: 40,
+              height: 5,
+              backgroundColor: 'grey.300',
+              borderRadius: 3,
+              mx: 'auto',
+              my: 1,
+            }}
+          />
+          <List>
+            {actionMenuImage && actionMenuImage.startsWith('http') && (
+              <ListItem disablePadding>
+                <ListItemButton onClick={handleCopyLinkAction}>
+                  <ListItemIcon>
+                    <LinkIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="复制链接" />
+                </ListItemButton>
+              </ListItem>
+            )}
+            <ListItem disablePadding>
+              <ListItemButton onClick={handleShareAction}>
+                <ListItemIcon>
+                  <ShareIcon />
+                </ListItemIcon>
+                <ListItemText primary="分享" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton onClick={handleDownloadAction}>
+                <ListItemIcon>
+                  <DownloadIcon />
+                </ListItemIcon>
+                <ListItemText primary="下载" />
+              </ListItemButton>
+            </ListItem>
+          </List>
+        </Box>
+      </Drawer>
+
+      {selectedImage && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1300, // Higher than other elements
+          }}
+        >
+          <IconButton
+            onClick={handleCloseModal}
+            sx={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              color: 'white',
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              },
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+          <Box onClick={(e) => e.stopPropagation()} sx={{ width: '90vw', height: '90vh', borderRadius: '8px', overflow: 'hidden' }}>
+            <TransformWrapper>
+              <TransformComponent
+                wrapperStyle={{ width: '100%', height: '100%' }}
+                contentStyle={{ width: '100%', height: '100%' }}
+              >
+                <div style={{ width: '100%', height: '100%', borderRadius: '8px', overflow: 'hidden' }}>
+                  <img src={selectedImage} alt="enlarged" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                </div>
+              </TransformComponent>
+            </TransformWrapper>
+          </Box>
         </Box>
       )}
     </Paper>

@@ -328,21 +328,7 @@ function parseResponse(data: any, path: string): any {
 }
 
 
-// Helper to convert ArrayBuffer to Base64
-function bufferToBase64(buffer: ArrayBuffer, mimeType: string): string {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    const base64 = btoa(binary);
-    return `data:${mimeType};base64,${base64}`;
-}
-
-export async function generateImages(
-    apiConfig: ApiSource, 
-    formState: Record<number, any>
-): Promise<string[]> {
+export async function generateImages(apiConfig: ApiSource, formState: Record<number, any>): Promise<string[]> {
     console.log("Generating images with config:", apiConfig);
     console.log("Payload (formState by index):", formState);
 
@@ -350,13 +336,13 @@ export async function generateImages(
     const imageConfig = responseConfig.image;
     const method = func.toUpperCase();
     let finalUrl = link;
-    const results: string[] = [];
 
     const options: any = { method };
 
     if (method === 'GET' || method === 'HEAD') {
         finalUrl = constructApiUrl(link, formState, apiConfig);
     } else {
+        // For POST requests, construct a name-keyed payload
         const payload: Record<string, any> = {};
         parameters.forEach((param: any, index: number) => {
             if (param.name) {
@@ -369,108 +355,148 @@ export async function generateImages(
 
     try {
         console.log(`Making ${method} request to: ${finalUrl}`);
-        if (options.body) console.log("Request body:", options.body);
+        if (options.body) {
+            console.log("Request body:", options.body);
+        }
 
         const response = await fetch(finalUrl, options);
-        if (!response.ok) throw new Error(`API request failed: ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`API request failed: ${response.status}`);
+        }
+
+        let imageUrls: any[] = [];
+        const responseData = new Uint8Array(await response.arrayBuffer());
 
         switch (imageConfig.content_type) {
-            case 'BINARY': {
-                const responseDataBuffer = await response.arrayBuffer();
+            case 'BINARY':
+                let base64String = btoa(String.fromCharCode(...new Uint8Array(responseData)));
+                // This is a naive way to get mime type, might need improvement
                 const mimeType = response.headers.get('Content-Type') || 'image/jpeg';
-                results.push(bufferToBase64(responseDataBuffer, mimeType));
+                imageUrls = [`data:${mimeType};base64,${base64String}`];
                 break;
-            }
-            case 'BASE64': {
-                const textData = await response.text();
-                const path = imageConfig.path || '';
-                const base64Data = path ? parseResponse(JSON.parse(textData), path) : textData;
-                const dataArray = Array.isArray(base64Data) ? base64Data : [base64Data];
-                dataArray.forEach(b64 => results.push(`data:image/png;base64,${b64}`)); // Assuming png for now
-                break;
-            }
-            case 'URL': {
-                const textData = await response.text();
-                let urls: string[] = [];
+
+            case 'BASE64':
+            case 'URL':
+            default:
+                // For URL and BASE64, we need the text content
+                const textData = new TextDecoder().decode(responseData);
+                console.log("Received response data:", textData);
+
+                if (imageConfig.content_type === 'BASE64') {
+                    const path = imageConfig.path || '';
+                    const base64Data = path ? parseResponse(JSON.parse(textData), path) : textData;
+                    if (Array.isArray(base64Data)) {
+                        imageUrls = base64Data.map(b64 => `data:image/png;base64,${b64}`);
+                    } else {
+                        imageUrls = [`data:image/png;base64,${base64Data}`];
+                    }
+                    break;
+                }
+
+                // Default to URL content type
                 try {
                     const data = JSON.parse(textData);
                     const path = imageConfig.path || '';
-                    const extracted = path ? parseResponse(data, path) : data;
-                    urls = Array.isArray(extracted) ? extracted.flat(Infinity) : [extracted];
+                    if (path) {
+                        const extractedUrls = parseResponse(data, path);
+                        if (extractedUrls) {
+                            imageUrls = Array.isArray(extractedUrls) ? extractedUrls : [extractedUrls];
+                        }
+                    } else {
+                        imageUrls = Array.isArray(data) ? data : [data];
+                    }
                 } catch (e) {
-                    urls = textData.split(/[\n\s,]+/).filter(url => url.trim().startsWith('http'));
+                    imageUrls = textData.split('\n').filter(url => url.trim().startsWith('http'));
                 }
-                results.push(...urls.filter(Boolean));
                 break;
-            }
         }
+
+        return imageUrls.filter(Boolean).map(String);
+
     } catch (error) {
         console.error('Failed to generate images:', error);
+        return [];
     }
-    
-    return results;
 }
 
-// Helper to decode Base64 and get metadata
-function decodeBase64(base64DataUrl: string) {
-    const [header, base64] = base64DataUrl.split(',');
-    const mimeType = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
-    const extension = mimeType.split('/')[1] || 'jpg';
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+async function getImageDataAsUint8Array(imageUrl: string): Promise<Uint8Array> {
+    if (imageUrl.startsWith('data:')) {
+        // Handle base64 data URL
+        const base64 = imageUrl.split(',')[1];
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+    } else {
+        // Handle regular URL
+        const response = await fetch(imageUrl, { method: 'GET' });
+        if (!response.ok) {
+            throw new Error(`Failed to download image: ${response.status}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        return new Uint8Array(arrayBuffer);
     }
-    return { data: bytes, mimeType, extension };
 }
 
-// Helper to create a hash from data
-async function createHash(data: Uint8Array): Promise<string> {
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data.slice());
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-export async function shareImage(base64Data: string): Promise<void> {
+async function downloadImageToTemp(imageUrl: string): Promise<string | null> {
     try {
-        const { data, mimeType, extension } = decodeBase64(base64Data);
-        const hash = await createHash(data);
-        const fileName = `${hash}.${extension}`;
-        
+        const saveData = await getImageDataAsUint8Array(imageUrl);
         const temp = await tempDir();
+        const fileName = new URL(imageUrl).pathname.split('/').pop()?.replace(/[<>:"/\\|?*]/g, '_') || `image-${Date.now()}.jpg`;
         const filePath = await join(temp, fileName);
 
-        await writeFile(filePath, data);
-
-        await invoke("plugin:sharesheet|share_file", {
-            file: filePath,
-            options: {
-                mimeType,
-                title: fileName,
-            },
-        });
+        await writeFile(filePath, saveData);
+        return filePath;
     } catch (error) {
-        console.error('Failed to share image:', error);
+        console.error('Failed to download image to temp:', error);
         await sendNotification({
-            title: '分享失败',
-            body: `无法分享图片: ${String(error)}`
+            title: '下载失败',
+            body: `无法下载图片: ${String(error)}`
         });
+        return null;
     }
 }
 
-export async function downloadImage(base64Data: string, fileName: string): Promise<void> {
+export async function shareImage(imageUrl: string): Promise<void> {
+    const tempFilePath = await downloadImageToTemp(imageUrl);
+    if (tempFilePath) {
+        try {
+            const mimeType = imageUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
+            const title = tempFilePath.split('/').pop() || 'image';
+            
+            await invoke("plugin:sharesheet|share_file", {
+              file: tempFilePath,
+              options: {
+                mimeType,
+                title,
+              },
+            });
+        } catch (error) {
+            console.error('Failed to share image:', error);
+            await sendNotification({
+                title: '分享失败',
+                body: `无法分享图片: ${String(error)}`
+            });
+        }
+    }
+}
+
+export async function downloadImage(imageUrl: string): Promise<void> {
     try {
-        const { data } = decodeBase64(base64Data);
+        const saveData = await getImageDataAsUint8Array(imageUrl);
         const saveDir = await downloadDir();
 
         if (!await exists(saveDir)) {
             await mkdir(saveDir, { recursive: true });
         }
 
+        const fileName = new URL(imageUrl).pathname.split('/').pop()?.replace(/[<>:"/\\|?*]/g, '_') || `image-${Date.now()}.jpg`;
         const filePath = await join(saveDir, fileName);
 
-        await writeFile(filePath, data);
+        await writeFile(filePath, saveData);
 
         await sendNotification({
             title: '下载完成',
@@ -521,8 +547,12 @@ export async function getLocalImages(): Promise<string[]> {
                     const filePath = await join(dir, file.name);
                     const contents = await readFile(filePath);
                     const mimeType = getMimeType(file.name);
-                    // Create a copy to ensure it's a standard ArrayBuffer, not ArrayBufferLike
-                    return bufferToBase64(contents.slice().buffer, mimeType);
+                    let binary = '';
+                    for (let i = 0; i < contents.byteLength; i++) {
+                        binary += String.fromCharCode(contents[i]);
+                    }
+                    const base64 = btoa(binary);
+                    return `data:${mimeType};base64,${base64}`;
                 } catch (readError) {
                     console.error(`Failed to read file ${file.name}:`, readError);
                     return null;
