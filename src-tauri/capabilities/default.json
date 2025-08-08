@@ -21,15 +21,14 @@
         { "url": "https://**" }
       ]
     },
+    "sharesheet:default",
+    "fs:read-all",
+    "fs:write-all",
     {
       "identifier": "fs:scope",
       "allow": [
         { "path": "**" }
       ]
-    },
-    "sharesheet:default",
-    "fs:allow-write-file",
-    "fs:allow-exists",
-    "fs:allow-mkdir"
+    }
   ]
 }

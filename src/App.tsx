@@ -9,8 +9,8 @@ import "./App.css"; // Assuming you have a CSS file for global styles
 
 function App() {
   return (
-    <SnackbarProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <SnackbarProvider>
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<HomePage />} />
@@ -19,8 +19,8 @@ function App() {
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Routes>
-      </BrowserRouter>
-    </SnackbarProvider>
+      </SnackbarProvider>
+    </BrowserRouter>
   );
 }
 
