@@ -2,6 +2,8 @@ import { useState, useRef } from 'react';
 import { ImageList, ImageListItem, Box, Typography, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, CircularProgress } from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
+import LinkIcon from '@mui/icons-material/Link';
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { shareImage, downloadImage } from '../services/market';
 import { useSnackbar } from '../context/SnackbarContext';
 
@@ -13,7 +15,7 @@ interface ImageGridProps {
 export default function ImageGrid({ images, cols }: ImageGridProps) {
   const { showSnackbar } = useSnackbar();
   const [actionMenuImage, setActionMenuImage] = useState<string | null>(null);
-  const [loadingAction, setLoadingAction] = useState<'share' | 'download' | null>(null);
+  const [loadingAction, setLoadingAction] = useState<'share' | 'download' | 'copy' | null>(null);
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
 
@@ -52,6 +54,21 @@ export default function ImageGrid({ images, cols }: ImageGridProps) {
         showSnackbar(`${fileName} 已保存。`);
       } catch (error: any) {
         showSnackbar(error.message || '下载失败');
+      } finally {
+        setLoadingAction(null);
+        handleActionMenuClose();
+      }
+    }
+  };
+
+  const handleCopyLinkAction = async () => {
+    if (actionMenuImage && !actionMenuImage.startsWith('data:')) {
+      setLoadingAction('copy');
+      try {
+        await writeText(actionMenuImage);
+        showSnackbar('链接已复制');
+      } catch (error: any) {
+        showSnackbar(error.message || '复制失败');
       } finally {
         setLoadingAction(null);
         handleActionMenuClose();
@@ -130,6 +147,17 @@ export default function ImageGrid({ images, cols }: ImageGridProps) {
             }}
           />
           <List>
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={handleCopyLinkAction}
+                disabled={!!loadingAction || actionMenuImage?.startsWith('data:')}
+              >
+                <ListItemIcon>
+                  {loadingAction === 'copy' ? <CircularProgress size={24} /> : <LinkIcon />}
+                </ListItemIcon>
+                <ListItemText primary="复制链接" />
+              </ListItemButton>
+            </ListItem>
             <ListItem disablePadding>
               <ListItemButton onClick={handleShareAction} disabled={!!loadingAction}>
                 <ListItemIcon>
