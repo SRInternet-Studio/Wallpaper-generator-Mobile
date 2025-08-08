@@ -440,11 +440,43 @@ async function getImageDataAsUint8Array(imageUrl: string): Promise<Uint8Array> {
     }
 }
 
+async function sha256(str: string): Promise<string> {
+  const buffer = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(str),
+  );
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 async function downloadImageToTemp(imageUrl: string): Promise<string> {
     try {
         const saveData = await getImageDataAsUint8Array(imageUrl);
         const temp = await tempDir();
-        const fileName = new URL(imageUrl).pathname.split('/').pop()?.replace(/[<>:"/\\|?*]/g, '_') || `image-${Date.now()}.jpg`;
+
+        // Generate filename from hash
+        const hash = await sha256(imageUrl);
+        let extension = 'jpg'; // default extension
+
+        if (imageUrl.startsWith('data:')) {
+            const mimeMatch = imageUrl.match(/data:image\/(.*?);/);
+            if (mimeMatch && mimeMatch[1]) {
+                extension = mimeMatch[1];
+            }
+        } else {
+            try {
+                const url = new URL(imageUrl);
+                const ext = url.pathname.split('.').pop();
+                if (ext && ext.length > 1 && ext.length < 5) { // simple check for valid extension
+                    extension = ext;
+                }
+            } catch (e) {
+                console.error("Could not parse URL to get extension:", imageUrl, e);
+            }
+        }
+
+        const fileName = `${hash}.${extension}`;
         const filePath = await join(temp, fileName);
 
         await writeFile(filePath, saveData);
