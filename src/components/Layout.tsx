@@ -30,7 +30,7 @@ export default function Layout() {
         <List>
           {navItems.map((item) => (
             <ListItem key={item.text} disablePadding>
-              <ListItemButton component={Link} to={item.path} selected={location.pathname === item.path}>
+              <ListItemButton component={Link} to={item.path} selected={location.pathname === item.path} replace>
                 <ListItemIcon>{item.icon}</ListItemIcon>
                 <ListItemText primary={item.text} />
               </ListItemButton>
@@ -55,6 +55,7 @@ export default function Layout() {
             icon={item.icon}
             component={Link}
             to={item.path}
+            replace
           />
         ))}
       </BottomNavigation>
