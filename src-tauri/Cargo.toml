@@ -29,4 +29,3 @@ tauri-plugin-notification = "2"
 tauri-plugin-log = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-sharesheet = { git = "https://github.com/MnlPhlp/tauri-plugin-sharesheet" }
-tokio = { version = "1.47.1", features = ["time"] }

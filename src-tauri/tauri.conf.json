@@ -12,21 +12,9 @@
   "app": {
     "windows": [
       {
-        "label": "main",
         "title": "Wallpaper Generator",
         "width": 800,
-        "height": 600,
-        "visible": false
-      },
-      {
-        "label": "splashscreen",
-        "url": "splashscreen.html",
-        "title": "Starting...",
-        "width": 400,
-        "height": 200,
-        "decorations": false,
-        "center": true,
-        "transparent": true
+        "height": 600
       }
     ],
     "security": {

@@ -5270,7 +5270,6 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-sharesheet",
  "tauri-plugin-store",
- "tokio",
 ]
 
 [[package]]
