@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { ImageList, ImageListItem, Box, Typography, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
+import { ImageList, ImageListItem, Box, Typography, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, CircularProgress } from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
 import { shareImage, downloadImage } from '../services/market';
@@ -13,6 +13,7 @@ interface ImageGridProps {
 export default function ImageGrid({ images, cols }: ImageGridProps) {
   const { showSnackbar } = useSnackbar();
   const [actionMenuImage, setActionMenuImage] = useState<string | null>(null);
+  const [loadingAction, setLoadingAction] = useState<'share' | 'download' | null>(null);
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
 
@@ -30,26 +31,32 @@ export default function ImageGrid({ images, cols }: ImageGridProps) {
 
   const handleShareAction = async () => {
     if (actionMenuImage) {
+      setLoadingAction('share');
       try {
         await shareImage(actionMenuImage);
         showSnackbar('已调用分享菜单');
       } catch (error: any) {
         showSnackbar(error.message || '分享失败');
+      } finally {
+        setLoadingAction(null);
+        handleActionMenuClose();
       }
     }
-    handleActionMenuClose();
   };
 
   const handleDownloadAction = async () => {
     if (actionMenuImage) {
+      setLoadingAction('download');
       try {
         const fileName = await downloadImage(actionMenuImage);
         showSnackbar(`${fileName} 已保存。`);
       } catch (error: any) {
         showSnackbar(error.message || '下载失败');
+      } finally {
+        setLoadingAction(null);
+        handleActionMenuClose();
       }
     }
-    handleActionMenuClose();
   };
 
   const handleTouchStart = (img: string) => {
@@ -124,17 +131,17 @@ export default function ImageGrid({ images, cols }: ImageGridProps) {
           />
           <List>
             <ListItem disablePadding>
-              <ListItemButton onClick={handleShareAction}>
+              <ListItemButton onClick={handleShareAction} disabled={!!loadingAction}>
                 <ListItemIcon>
-                  <ShareIcon />
+                  {loadingAction === 'share' ? <CircularProgress size={24} /> : <ShareIcon />}
                 </ListItemIcon>
                 <ListItemText primary="分享" />
               </ListItemButton>
             </ListItem>
             <ListItem disablePadding>
-              <ListItemButton onClick={handleDownloadAction}>
+              <ListItemButton onClick={handleDownloadAction} disabled={!!loadingAction}>
                 <ListItemIcon>
-                  <DownloadIcon />
+                  {loadingAction === 'download' ? <CircularProgress size={24} /> : <DownloadIcon />}
                 </ListItemIcon>
                 <ListItemText primary="下载" />
               </ListItemButton>

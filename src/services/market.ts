@@ -418,10 +418,12 @@ export async function generateImages(apiConfig: ApiSource, formState: Record<num
     }
 }
 
+const imageCache = new Map<string, string>(); // Global cache for URL -> base64
+
 async function getImageDataAsUint8Array(imageUrl: string): Promise<Uint8Array> {
-    if (imageUrl.startsWith('data:')) {
-        // Handle base64 data URL
-        const base64 = imageUrl.split(',')[1];
+    // 1. Check cache first
+    if (imageCache.has(imageUrl)) {
+        const base64 = imageCache.get(imageUrl)!;
         const binaryString = atob(base64);
         const len = binaryString.length;
         const bytes = new Uint8Array(len);
@@ -429,15 +431,38 @@ async function getImageDataAsUint8Array(imageUrl: string): Promise<Uint8Array> {
             bytes[i] = binaryString.charCodeAt(i);
         }
         return bytes;
+    }
+
+    // 2. If not in cache, fetch it
+    let bytes: Uint8Array;
+    let base64ToCache: string;
+
+    if (imageUrl.startsWith('data:')) {
+        // It's already a data URL, extract base64 and convert to bytes
+        base64ToCache = imageUrl.split(',')[1];
+        const binaryString = atob(base64ToCache);
+        const len = binaryString.length;
+        bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
     } else {
-        // Handle regular URL
+        // It's a remote URL, download it
         const response = await fetch(imageUrl, { method: 'GET' });
         if (!response.ok) {
             throw new Error(`Failed to download image: ${response.status}`);
         }
         const arrayBuffer = await response.arrayBuffer();
-        return new Uint8Array(arrayBuffer);
+        bytes = new Uint8Array(arrayBuffer);
+
+        // Convert downloaded bytes to base64 for caching
+        base64ToCache = btoa(String.fromCharCode(...bytes));
     }
+
+    // 3. Store in cache
+    imageCache.set(imageUrl, base64ToCache);
+
+    return bytes;
 }
 
 async function sha256(str: string): Promise<string> {
