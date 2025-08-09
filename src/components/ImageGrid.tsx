@@ -238,6 +238,14 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
                     <ListItemText primary="复制链接" />
                   </ListItemButton>
                 </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton onClick={handleShareAction} disabled={!!loadingAction}>
+                <ListItemIcon>
+                  {loadingAction === 'share' ? <CircularProgress size={24} /> : <ShareIcon />}
+                </ListItemIcon>
+                <ListItemText primary="分享" />
+              </ListItemButton>
+            </ListItem>
                 <ListItem disablePadding>
                   <ListItemButton onClick={handleDownloadAction} disabled={!!loadingAction}>
                     <ListItemIcon>
@@ -248,14 +256,6 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
                 </ListItem>
               </>
             )}
-            <ListItem disablePadding>
-              <ListItemButton onClick={handleShareAction} disabled={!!loadingAction}>
-                <ListItemIcon>
-                  {loadingAction === 'share' ? <CircularProgress size={24} /> : <ShareIcon />}
-                </ListItemIcon>
-                <ListItemText primary="分享" />
-              </ListItemButton>
-            </ListItem>
             {actionMenuImage && typeof actionMenuImage !== 'string' && onDelete && (
               <ListItem disablePadding>
                 <ListItemButton onClick={handleDeleteAction} disabled={!!loadingAction}>
