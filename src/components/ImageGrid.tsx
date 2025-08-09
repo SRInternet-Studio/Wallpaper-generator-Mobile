@@ -10,23 +10,23 @@ import LinkIcon from '@mui/icons-material/Link';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import { shareImage, downloadImage } from '../services/market';
 import { useSnackbar } from '../context/SnackbarContext';
+import { LocalImage } from '../pages/HomePage'; // Import the interface
+
+type ImageSource = string | LocalImage;
 
 interface ImageGridProps {
-  images: string[];
+  images: ImageSource[];
   cols: number;
   onDelete?: (filePath: string) => void;
   onRename?: (oldPath: string, newName: string) => Promise<void>;
 }
 
-// Helper to check if a string is a local file path
-const isLocalFile = (path: string) => /^(?:\/|[A-Z]:\\)/i.test(path);
-
 export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGridProps) {
   const { showSnackbar } = useSnackbar();
-  const [actionMenuImage, setActionMenuImage] = useState<string | null>(null);
+  const [actionMenuImage, setActionMenuImage] = useState<ImageSource | null>(null);
   const [loadingAction, setLoadingAction] = useState<'share' | 'download' | 'copy' | 'delete' | 'rename' | null>(null);
   const [isRenameDialogOpen, setRenameDialogOpen] = useState(false);
   const [newImageName, setNewImageName] = useState('');
@@ -37,7 +37,7 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
     return null;
   }
 
-  const handleImageLongPress = (img: string) => {
+  const handleImageLongPress = (img: ImageSource) => {
     setActionMenuImage(img);
   };
 
@@ -47,7 +47,8 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
 
   const handleRenameDialogOpen = () => {
     if (actionMenuImage) {
-      const currentName = actionMenuImage.split(/[/\\]/).pop()?.split('.').slice(0, -1).join('.') || '';
+      const path = typeof actionMenuImage === 'string' ? actionMenuImage : actionMenuImage.path;
+      const currentName = path.split(/[/\\]/).pop()?.split('.').slice(0, -1).join('.') || '';
       setNewImageName(currentName);
       setRenameDialogOpen(true);
       handleActionMenuClose();
@@ -61,9 +62,10 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
 
   const handleRenameAction = async () => {
     if (!actionMenuImage || !onRename || !newImageName.trim()) return;
+    const path = typeof actionMenuImage === 'string' ? actionMenuImage : actionMenuImage.path;
     setLoadingAction('rename');
     try {
-      await onRename(actionMenuImage, newImageName.trim());
+      await onRename(path, newImageName.trim());
       showSnackbar('重命名成功');
     } catch (error: any) {
       showSnackbar(error.message || '重命名失败');
@@ -77,17 +79,20 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
     if (!actionMenuImage) return;
     setLoadingAction('share');
     try {
-      if (isLocalFile(actionMenuImage)) {
+      const isLocal = typeof actionMenuImage !== 'string';
+      const path = isLocal ? actionMenuImage.path : actionMenuImage;
+
+      if (isLocal) {
         // It's a local file, share directly
-        const mimeType = actionMenuImage.endsWith('.png') ? 'image/png' : 'image/jpeg';
-        const title = actionMenuImage.split(/[/\\]/).pop() || 'image';
+        const mimeType = path.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        const title = path.split(/[/\\]/).pop() || 'image';
         await invoke("plugin:sharesheet|share_file", {
-          file: actionMenuImage,
+          file: path,
           options: { mimeType, title },
         });
       } else {
         // It's a remote URL, use the service to download and then share
-        await shareImage(actionMenuImage);
+        await shareImage(path);
       }
       showSnackbar('已调用分享菜单');
     } catch (error: any) {
@@ -100,10 +105,11 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
 
   const handleDeleteAction = async () => {
     if (!actionMenuImage || !onDelete) return;
+    const path = typeof actionMenuImage === 'string' ? actionMenuImage : actionMenuImage.path;
     setLoadingAction('delete');
     try {
       // The actual file deletion is handled by the parent component via the callback
-      onDelete(actionMenuImage);
+      onDelete(path);
       showSnackbar('图片已删除');
     } catch (error: any) {
       showSnackbar(error.message || '删除失败');
@@ -114,7 +120,7 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
   };
 
   const handleDownloadAction = async () => {
-    if (!actionMenuImage) return;
+    if (!actionMenuImage || typeof actionMenuImage !== 'string') return;
     setLoadingAction('download');
     try {
       const fileName = await downloadImage(actionMenuImage);
@@ -128,7 +134,7 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
   };
 
   const handleCopyLinkAction = async () => {
-    if (!actionMenuImage) return;
+    if (!actionMenuImage || typeof actionMenuImage !== 'string') return;
     setLoadingAction('copy');
     try {
       await writeText(actionMenuImage);
@@ -141,7 +147,7 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
     }
   };
 
-  const handleTouchStart = (img: string) => {
+  const handleTouchStart = (img: ImageSource) => {
     longPressTriggered.current = false;
     longPressTimer.current = window.setTimeout(() => {
       longPressTriggered.current = true;
@@ -165,22 +171,23 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
           提示：长按图片可进行分享或下载。
         </Typography>
         <ImageList variant="masonry" cols={cols} gap={8}>
-          {images.map((imgSrc) => {
-            const displaySrc = isLocalFile(imgSrc) ? convertFileSrc(imgSrc) : imgSrc;
+          {images.map((image) => {
+            const src = typeof image === 'string' ? image : image.src;
+            const key = typeof image === 'string' ? image : image.path;
             return (
               <ImageListItem
-                key={imgSrc}
+                key={key}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  handleImageLongPress(imgSrc);
+                  handleImageLongPress(image);
                 }}
-                onTouchStart={() => handleTouchStart(imgSrc)}
+                onTouchStart={() => handleTouchStart(image)}
                 onTouchEnd={handleTouchEnd}
                 onTouchMove={handleTouchEnd} // Cancel long press if finger moves
                 sx={{ cursor: 'pointer', borderRadius: '8px', overflow: 'hidden', boxShadow: 4, border: '1px solid rgba(0, 0, 0, 0.1)' }}
               >
                 <img
-                  src={displaySrc}
+                  src={src}
                   alt=""
                   loading="lazy"
                 />
@@ -218,12 +225,12 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
             }}
           />
           <List>
-            {actionMenuImage && !isLocalFile(actionMenuImage) && (
+            {actionMenuImage && typeof actionMenuImage === 'string' && (
               <>
                 <ListItem disablePadding>
                   <ListItemButton
                     onClick={handleCopyLinkAction}
-                    disabled={!!loadingAction || actionMenuImage?.startsWith('data:')}
+                    disabled={!!loadingAction || actionMenuImage.startsWith('data:')}
                   >
                     <ListItemIcon>
                       {loadingAction === 'copy' ? <CircularProgress size={24} /> : <LinkIcon />}
@@ -249,7 +256,7 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
                 <ListItemText primary="分享" />
               </ListItemButton>
             </ListItem>
-            {actionMenuImage && isLocalFile(actionMenuImage) && onDelete && (
+            {actionMenuImage && typeof actionMenuImage !== 'string' && onDelete && (
               <ListItem disablePadding>
                 <ListItemButton onClick={handleDeleteAction} disabled={!!loadingAction}>
                   <ListItemIcon>
@@ -259,7 +266,7 @@ export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGri
                 </ListItemButton>
               </ListItem>
             )}
-            {actionMenuImage && isLocalFile(actionMenuImage) && onRename && (
+            {actionMenuImage && typeof actionMenuImage !== 'string' && onRename && (
               <ListItem disablePadding>
                 <ListItemButton onClick={handleRenameDialogOpen} disabled={!!loadingAction}>
                   <ListItemIcon>

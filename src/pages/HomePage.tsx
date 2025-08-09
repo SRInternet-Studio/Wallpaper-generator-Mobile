@@ -1,14 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Typography, Box, CircularProgress, useMediaQuery, Button } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { readDir, remove, stat, rename } from '@tauri-apps/plugin-fs';
+import { readDir, remove, stat, rename, readFile } from '@tauri-apps/plugin-fs';
 import { join, dirname, extname } from '@tauri-apps/api/path';
 import { getWallpapersDir } from '../services/market';
 import ImageGrid from '../components/ImageGrid';
 import RefreshIcon from '@mui/icons-material/Refresh';
 
+export interface LocalImage {
+  path: string;
+  src: string;
+}
+
 export default function HomePage() {
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<LocalImage[]>([]);
   const [loading, setLoading] = useState(true);
 
   const theme = useTheme();
@@ -29,7 +34,7 @@ export default function HomePage() {
       await rename(oldPath, newPath);
 
       setImages(prevImages =>
-        prevImages.map(p => (p === oldPath ? newPath : p))
+        prevImages.map(p => (p.path === oldPath ? { ...p, path: newPath } : p))
       );
     } catch (error) {
       console.error("Failed to rename image:", error);
@@ -40,7 +45,7 @@ export default function HomePage() {
   const handleDelete = async (filePath: string) => {
     try {
       await remove(filePath);
-      setImages(prevImages => prevImages.filter(p => p !== filePath));
+      setImages(prevImages => prevImages.filter(p => p.path !== filePath));
     } catch (error) {
       console.error("Failed to delete image:", error);
       // Optionally show a snackbar message here
@@ -72,7 +77,14 @@ export default function HomePage() {
 
       const sortedImagePaths = filesWithStats.map(file => file.path);
 
-      setImages(sortedImagePaths);
+      const loadedImages = await Promise.all(sortedImagePaths.map(async (path) => {
+        const fileContents = await readFile(path);
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(fileContents)));
+        const mimeType = path.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        return { path, src: `data:${mimeType};base64,${base64}` };
+      }));
+
+      setImages(loadedImages);
     } catch (error) {
       console.error("Failed to load images from wallpapers directory:", error);
     } finally {
