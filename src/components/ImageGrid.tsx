@@ -1,9 +1,14 @@
 import { useState, useRef } from 'react';
-import { ImageList, ImageListItem, Box, Typography, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, CircularProgress } from '@mui/material';
+import {
+  ImageList, ImageListItem, Box, Typography, Drawer, List, ListItem, ListItemButton,
+  ListItemIcon, ListItemText, CircularProgress, Dialog, DialogTitle, DialogContent,
+  TextField, DialogActions, Button
+} from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
 import LinkIcon from '@mui/icons-material/Link';
 import DeleteIcon from '@mui/icons-material/Delete';
+import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { shareImage, downloadImage } from '../services/market';
@@ -12,16 +17,19 @@ import { useSnackbar } from '../context/SnackbarContext';
 interface ImageGridProps {
   images: string[];
   cols: number;
-  onDelete?: (filePath: string) => void; // Callback for when a local file is deleted
+  onDelete?: (filePath: string) => void;
+  onRename?: (oldPath: string, newName: string) => Promise<void>;
 }
 
 // Helper to check if a string is a local file path
 const isLocalFile = (path: string) => /^(?:\/|[A-Z]:\\)/i.test(path);
 
-export default function ImageGrid({ images, cols, onDelete }: ImageGridProps) {
+export default function ImageGrid({ images, cols, onDelete, onRename }: ImageGridProps) {
   const { showSnackbar } = useSnackbar();
   const [actionMenuImage, setActionMenuImage] = useState<string | null>(null);
-  const [loadingAction, setLoadingAction] = useState<'share' | 'download' | 'copy' | 'delete' | null>(null);
+  const [loadingAction, setLoadingAction] = useState<'share' | 'download' | 'copy' | 'delete' | 'rename' | null>(null);
+  const [isRenameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [newImageName, setNewImageName] = useState('');
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
 
@@ -35,6 +43,34 @@ export default function ImageGrid({ images, cols, onDelete }: ImageGridProps) {
 
   const handleActionMenuClose = () => {
     setActionMenuImage(null);
+  };
+
+  const handleRenameDialogOpen = () => {
+    if (actionMenuImage) {
+      const currentName = actionMenuImage.split(/[/\\]/).pop()?.split('.').slice(0, -1).join('.') || '';
+      setNewImageName(currentName);
+      setRenameDialogOpen(true);
+      handleActionMenuClose();
+    }
+  };
+
+  const handleRenameDialogClose = () => {
+    setRenameDialogOpen(false);
+    setNewImageName('');
+  };
+
+  const handleRenameAction = async () => {
+    if (!actionMenuImage || !onRename || !newImageName.trim()) return;
+    setLoadingAction('rename');
+    try {
+      await onRename(actionMenuImage, newImageName.trim());
+      showSnackbar('重命名成功');
+    } catch (error: any) {
+      showSnackbar(error.message || '重命名失败');
+    } finally {
+      setLoadingAction(null);
+      handleRenameDialogClose();
+    }
   };
 
   const handleShareAction = async () => {
@@ -223,9 +259,42 @@ export default function ImageGrid({ images, cols, onDelete }: ImageGridProps) {
                 </ListItemButton>
               </ListItem>
             )}
+            {actionMenuImage && isLocalFile(actionMenuImage) && onRename && (
+              <ListItem disablePadding>
+                <ListItemButton onClick={handleRenameDialogOpen} disabled={!!loadingAction}>
+                  <ListItemIcon>
+                    {loadingAction === 'rename' ? <CircularProgress size={24} /> : <DriveFileRenameOutlineIcon />}
+                  </ListItemIcon>
+                  <ListItemText primary="重命名" />
+                </ListItemButton>
+              </ListItem>
+            )}
           </List>
         </Box>
       </Drawer>
+
+      <Dialog open={isRenameDialogOpen} onClose={handleRenameDialogClose}>
+        <DialogTitle>重命名图片</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="新文件名 (不含扩展名)"
+            type="text"
+            fullWidth
+            variant="standard"
+            value={newImageName}
+            onChange={(e) => setNewImageName(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleRenameAction()}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleRenameDialogClose}>取消</Button>
+          <Button onClick={handleRenameAction} disabled={loadingAction === 'rename'}>
+            {loadingAction === 'rename' ? <CircularProgress size={20} /> : '保存'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
