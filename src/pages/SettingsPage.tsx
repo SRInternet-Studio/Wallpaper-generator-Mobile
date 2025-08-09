@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { Typography, Button, Paper, Box, TextField, CircularProgress, Switch, FormControlLabel, IconButton } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { getSetting, setSetting } from '../services/settings';
-import { downloadDir } from '@tauri-apps/api/path';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-import { clearApiCache } from '../services/market';
+import { clearApiCache, getWallpapersDir } from '../services/market';
 import { useSnackbar } from '../context/SnackbarContext';
 
 export default function SettingsPage() {
@@ -18,7 +17,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     async function loadSettings() {
-      const path = await downloadDir();
+      const path = await getWallpapersDir();
       setDownloadPath(path);
 
       const pat = await getSetting<string>('github_pat');
@@ -69,7 +68,7 @@ export default function SettingsPage() {
           图片下载路径
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          所有图片将自动保存至应用的专属下载目录中，卸载应用时数据将被清除。
+          所有生成的图片将自动保存至公共下载目录的 "Wallpapers" 文件夹中。
         </Typography>
         <Paper variant="outlined" sx={{ p: 1, mt: 1, display: 'flex', alignItems: 'center', backgroundColor: 'action.hover' }}>
           <Typography sx={{ wordBreak: 'break-all', flexGrow: 1 }}>{downloadPath}</Typography>

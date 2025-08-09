@@ -4,7 +4,7 @@ import { writeFile, mkdir, exists } from '@tauri-apps/plugin-fs';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { APICORE_SCHEMA } from './schema';
-import { downloadDir, join, tempDir } from '@tauri-apps/api/path';
+import { homeDir, join } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
 
 function parseDirectoryListing(html: string): { name: string, type: 'dir' | 'file' }[] {
@@ -475,25 +475,33 @@ async function sha256(str: string): Promise<string> {
     .join('');
 }
 
-async function downloadImageToTemp(imageUrl: string): Promise<string> {
+export async function getWallpapersDir(): Promise<string> {
+    const downloadDirPath = await join(await homeDir(), 'Download');
+    const wallpapersPath = await join(downloadDirPath, 'Wallpapers');
+    if (!await exists(wallpapersPath)) {
+        await mkdir(wallpapersPath, { recursive: true });
+    }
+    return wallpapersPath;
+}
+
+async function saveImageToWallpapersDir(imageUrl: string): Promise<{ filePath: string, fileName: string }> {
     try {
         const saveData = await getImageDataAsUint8Array(imageUrl);
-        const temp = await tempDir();
+        const saveDir = await getWallpapersDir();
 
-        // Generate filename from hash
         const hash = await sha256(imageUrl);
-        let extension = 'jpg'; // default extension
+        let extension = 'jpg';
 
         if (imageUrl.startsWith('data:')) {
             const mimeMatch = imageUrl.match(/data:image\/(.*?);/);
             if (mimeMatch && mimeMatch[1]) {
-                extension = mimeMatch[1];
+                extension = mimeMatch[1].split('+')[0]; // e.g. svg+xml -> svg
             }
         } else {
             try {
                 const url = new URL(imageUrl);
                 const ext = url.pathname.split('.').pop();
-                if (ext && ext.length > 1 && ext.length < 5) { // simple check for valid extension
+                if (ext && ext.length > 1 && ext.length < 5) {
                     extension = ext;
                 }
             } catch (e) {
@@ -502,27 +510,31 @@ async function downloadImageToTemp(imageUrl: string): Promise<string> {
         }
 
         const fileName = `${hash}.${extension}`;
-        const filePath = await join(temp, fileName);
+        const filePath = await join(saveDir, fileName);
 
-        await writeFile(filePath, saveData);
-        return filePath;
+        if (!await exists(filePath)) {
+            await writeFile(filePath, saveData);
+        }
+        
+        return { filePath, fileName };
     } catch (error) {
-        console.error('Failed to download image to temp:', error);
-        throw new Error(`无法下载图片: ${String(error)}`);
+        console.error('Failed to save image to wallpapers dir:', error);
+        throw new Error(`无法保存图片: ${String(error)}`);
     }
 }
 
 export async function shareImage(imageUrl: string): Promise<void> {
-    const tempFilePath = await downloadImageToTemp(imageUrl);
     try {
-        const mimeType = imageUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
-        const title = tempFilePath.split('/').pop() || 'image';
-        
+        const { filePath, fileName } = await saveImageToWallpapersDir(imageUrl);
+        const mimeType = imageUrl.startsWith('data:') 
+            ? (imageUrl.match(/data:(.*?);/)?.[1] ?? 'image/jpeg')
+            : (imageUrl.endsWith('.png') ? 'image/png' : 'image/jpeg');
+
         invoke("plugin:sharesheet|share_file", {
-            file: tempFilePath,
+            file: filePath,
             options: {
-            mimeType,
-            title,
+                mimeType,
+                title: fileName,
             },
         });
     } catch (error) {
@@ -533,19 +545,8 @@ export async function shareImage(imageUrl: string): Promise<void> {
 
 export async function downloadImage(imageUrl: string): Promise<string> {
     try {
-        const saveData = await getImageDataAsUint8Array(imageUrl);
-        const saveDir = await downloadDir();
-
-        if (!await exists(saveDir)) {
-            await mkdir(saveDir, { recursive: true });
-        }
-
-        const fileName = new URL(imageUrl).pathname.split('/').pop()?.replace(/[<>:"/\\|?*]/g, '_') || `image-${Date.now()}.jpg`;
-        const filePath = await join(saveDir, fileName);
-
-        await writeFile(filePath, saveData);
+        const { fileName } = await saveImageToWallpapersDir(imageUrl);
         return fileName;
-
     } catch (error) {
         console.error('Failed to download image:', error);
         throw new Error(`无法下载图片: ${String(error)}`);

@@ -4,6 +4,7 @@ import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
 import LinkIcon from '@mui/icons-material/Link';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { shareImage, downloadImage } from '../services/market';
 import { useSnackbar } from '../context/SnackbarContext';
 
@@ -11,6 +12,9 @@ interface ImageGridProps {
   images: string[];
   cols: number;
 }
+
+// Helper to check if a string is a local file path
+const isLocalFile = (path: string) => /^(?:\/|[A-Z]:\\)/i.test(path);
 
 export default function ImageGrid({ images, cols }: ImageGridProps) {
   const { showSnackbar } = useSnackbar();
@@ -32,47 +36,55 @@ export default function ImageGrid({ images, cols }: ImageGridProps) {
   };
 
   const handleShareAction = async () => {
-    if (actionMenuImage) {
-      setLoadingAction('share');
-      try {
+    if (!actionMenuImage) return;
+    setLoadingAction('share');
+    try {
+      if (isLocalFile(actionMenuImage)) {
+        // It's a local file, share directly
+        const mimeType = actionMenuImage.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        const title = actionMenuImage.split(/[/\\]/).pop() || 'image';
+        await invoke("plugin:sharesheet|share_file", {
+          file: actionMenuImage,
+          options: { mimeType, title },
+        });
+      } else {
+        // It's a remote URL, use the service to download and then share
         await shareImage(actionMenuImage);
-        showSnackbar('已调用分享菜单');
-      } catch (error: any) {
-        showSnackbar(error.message || '分享失败');
-      } finally {
-        setLoadingAction(null);
-        handleActionMenuClose();
       }
+      showSnackbar('已调用分享菜单');
+    } catch (error: any) {
+      showSnackbar(error.message || '分享失败');
+    } finally {
+      setLoadingAction(null);
+      handleActionMenuClose();
     }
   };
 
   const handleDownloadAction = async () => {
-    if (actionMenuImage) {
-      setLoadingAction('download');
-      try {
-        const fileName = await downloadImage(actionMenuImage);
-        showSnackbar(`${fileName} 已保存。`);
-      } catch (error: any) {
-        showSnackbar(error.message || '下载失败');
-      } finally {
-        setLoadingAction(null);
-        handleActionMenuClose();
-      }
+    if (!actionMenuImage) return;
+    setLoadingAction('download');
+    try {
+      const fileName = await downloadImage(actionMenuImage);
+      showSnackbar(`${fileName} 已保存。`);
+    } catch (error: any) {
+      showSnackbar(error.message || '下载失败');
+    } finally {
+      setLoadingAction(null);
+      handleActionMenuClose();
     }
   };
 
   const handleCopyLinkAction = async () => {
-    if (actionMenuImage && !actionMenuImage.startsWith('data:')) {
-      setLoadingAction('copy');
-      try {
-        await writeText(actionMenuImage);
-        showSnackbar('链接已复制');
-      } catch (error: any) {
-        showSnackbar(error.message || '复制失败');
-      } finally {
-        setLoadingAction(null);
-        handleActionMenuClose();
-      }
+    if (!actionMenuImage) return;
+    setLoadingAction('copy');
+    try {
+      await writeText(actionMenuImage);
+      showSnackbar('链接已复制');
+    } catch (error: any) {
+      showSnackbar(error.message || '复制失败');
+    } finally {
+      setLoadingAction(null);
+      handleActionMenuClose();
     }
   };
 
@@ -100,25 +112,28 @@ export default function ImageGrid({ images, cols }: ImageGridProps) {
           提示：长按图片可进行分享或下载。
         </Typography>
         <ImageList variant="masonry" cols={cols} gap={8}>
-          {images.map((img) => (
-            <ImageListItem
-              key={img}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                handleImageLongPress(img);
-              }}
-              onTouchStart={() => handleTouchStart(img)}
-              onTouchEnd={handleTouchEnd}
-              onTouchMove={handleTouchEnd} // Cancel long press if finger moves
-              sx={{ cursor: 'pointer', borderRadius: '8px', overflow: 'hidden', boxShadow: 4, border: '1px solid rgba(0, 0, 0, 0.1)' }}
-            >
-              <img
-                src={img}
-                alt=""
-                loading="lazy"
-              />
-            </ImageListItem>
-          ))}
+          {images.map((imgSrc) => {
+            const displaySrc = isLocalFile(imgSrc) ? convertFileSrc(imgSrc) : imgSrc;
+            return (
+              <ImageListItem
+                key={imgSrc}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  handleImageLongPress(imgSrc);
+                }}
+                onTouchStart={() => handleTouchStart(imgSrc)}
+                onTouchEnd={handleTouchEnd}
+                onTouchMove={handleTouchEnd} // Cancel long press if finger moves
+                sx={{ cursor: 'pointer', borderRadius: '8px', overflow: 'hidden', boxShadow: 4, border: '1px solid rgba(0, 0, 0, 0.1)' }}
+              >
+                <img
+                  src={displaySrc}
+                  alt=""
+                  loading="lazy"
+                />
+              </ImageListItem>
+            );
+          })}
         </ImageList>
       </Box>
       <Drawer
@@ -150,31 +165,35 @@ export default function ImageGrid({ images, cols }: ImageGridProps) {
             }}
           />
           <List>
-            <ListItem disablePadding>
-              <ListItemButton
-                onClick={handleCopyLinkAction}
-                disabled={!!loadingAction || actionMenuImage?.startsWith('data:')}
-              >
-                <ListItemIcon>
-                  {loadingAction === 'copy' ? <CircularProgress size={24} /> : <LinkIcon />}
-                </ListItemIcon>
-                <ListItemText primary="复制链接" />
-              </ListItemButton>
-            </ListItem>
+            {actionMenuImage && !isLocalFile(actionMenuImage) && (
+              <>
+                <ListItem disablePadding>
+                  <ListItemButton
+                    onClick={handleCopyLinkAction}
+                    disabled={!!loadingAction || actionMenuImage?.startsWith('data:')}
+                  >
+                    <ListItemIcon>
+                      {loadingAction === 'copy' ? <CircularProgress size={24} /> : <LinkIcon />}
+                    </ListItemIcon>
+                    <ListItemText primary="复制链接" />
+                  </ListItemButton>
+                </ListItem>
+                <ListItem disablePadding>
+                  <ListItemButton onClick={handleDownloadAction} disabled={!!loadingAction}>
+                    <ListItemIcon>
+                      {loadingAction === 'download' ? <CircularProgress size={24} /> : <DownloadIcon />}
+                    </ListItemIcon>
+                    <ListItemText primary="下载" />
+                  </ListItemButton>
+                </ListItem>
+              </>
+            )}
             <ListItem disablePadding>
               <ListItemButton onClick={handleShareAction} disabled={!!loadingAction}>
                 <ListItemIcon>
                   {loadingAction === 'share' ? <CircularProgress size={24} /> : <ShareIcon />}
                 </ListItemIcon>
                 <ListItemText primary="分享" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemButton onClick={handleDownloadAction} disabled={!!loadingAction}>
-                <ListItemIcon>
-                  {loadingAction === 'download' ? <CircularProgress size={24} /> : <DownloadIcon />}
-                </ListItemIcon>
-                <ListItemText primary="下载" />
               </ListItemButton>
             </ListItem>
           </List>
