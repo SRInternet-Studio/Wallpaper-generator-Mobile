@@ -3,7 +3,6 @@ import { Typography, Box, CircularProgress, useMediaQuery, Button } from '@mui/m
 import { useTheme } from '@mui/material/styles';
 import { readDir } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
-import { convertFileSrc } from '@tauri-apps/api/core';
 import { getWallpapersDir } from '../services/market';
 import ImageGrid from '../components/ImageGrid';
 import RefreshIcon from '@mui/icons-material/Refresh';
