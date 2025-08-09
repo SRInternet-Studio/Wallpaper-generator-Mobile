@@ -3,6 +3,7 @@ import { ImageList, ImageListItem, Box, Typography, Drawer, List, ListItem, List
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
 import LinkIcon from '@mui/icons-material/Link';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { shareImage, downloadImage } from '../services/market';
@@ -11,15 +12,16 @@ import { useSnackbar } from '../context/SnackbarContext';
 interface ImageGridProps {
   images: string[];
   cols: number;
+  onDelete?: (filePath: string) => void; // Callback for when a local file is deleted
 }
 
 // Helper to check if a string is a local file path
 const isLocalFile = (path: string) => /^(?:\/|[A-Z]:\\)/i.test(path);
 
-export default function ImageGrid({ images, cols }: ImageGridProps) {
+export default function ImageGrid({ images, cols, onDelete }: ImageGridProps) {
   const { showSnackbar } = useSnackbar();
   const [actionMenuImage, setActionMenuImage] = useState<string | null>(null);
-  const [loadingAction, setLoadingAction] = useState<'share' | 'download' | 'copy' | null>(null);
+  const [loadingAction, setLoadingAction] = useState<'share' | 'download' | 'copy' | 'delete' | null>(null);
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
 
@@ -54,6 +56,21 @@ export default function ImageGrid({ images, cols }: ImageGridProps) {
       showSnackbar('已调用分享菜单');
     } catch (error: any) {
       showSnackbar(error.message || '分享失败');
+    } finally {
+      setLoadingAction(null);
+      handleActionMenuClose();
+    }
+  };
+
+  const handleDeleteAction = async () => {
+    if (!actionMenuImage || !onDelete) return;
+    setLoadingAction('delete');
+    try {
+      // The actual file deletion is handled by the parent component via the callback
+      onDelete(actionMenuImage);
+      showSnackbar('图片已删除');
+    } catch (error: any) {
+      showSnackbar(error.message || '删除失败');
     } finally {
       setLoadingAction(null);
       handleActionMenuClose();
@@ -196,6 +213,16 @@ export default function ImageGrid({ images, cols }: ImageGridProps) {
                 <ListItemText primary="分享" />
               </ListItemButton>
             </ListItem>
+            {actionMenuImage && isLocalFile(actionMenuImage) && onDelete && (
+              <ListItem disablePadding>
+                <ListItemButton onClick={handleDeleteAction} disabled={!!loadingAction}>
+                  <ListItemIcon>
+                    {loadingAction === 'delete' ? <CircularProgress size={24} /> : <DeleteIcon />}
+                  </ListItemIcon>
+                  <ListItemText primary="删除" />
+                </ListItemButton>
+              </ListItem>
+            )}
           </List>
         </Box>
       </Drawer>

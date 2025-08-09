@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Typography, Box, CircularProgress, useMediaQuery, Button } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { readDir } from '@tauri-apps/plugin-fs';
+import { readDir, remove } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import { getWallpapersDir } from '../services/market';
 import ImageGrid from '../components/ImageGrid';
@@ -19,6 +19,16 @@ export default function HomePage() {
 
   const maxCols = isXl ? 5 : isLg ? 4 : isMd ? 3 : isSm ? 2 : 1;
   const cols = images.length > 0 ? Math.min(maxCols, images.length) : maxCols;
+
+  const handleDelete = async (filePath: string) => {
+    try {
+      await remove(filePath);
+      setImages(prevImages => prevImages.filter(p => p !== filePath));
+    } catch (error) {
+      console.error("Failed to delete image:", error);
+      // Optionally show a snackbar message here
+    }
+  };
 
   const loadImages = useCallback(async () => {
     setLoading(true);
@@ -60,7 +70,7 @@ export default function HomePage() {
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
       ) : images.length > 0 ? (
-        <ImageGrid images={images} cols={cols} />
+        <ImageGrid images={images} cols={cols} onDelete={handleDelete} />
       ) : (
         <Typography variant="body1" color="text.secondary" sx={{ mt: 4, textAlign: 'center' }}>
           这里还没有图片，快去“图片源市场”生成一些吧！
